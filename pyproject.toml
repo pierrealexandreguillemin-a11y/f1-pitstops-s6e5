@@ -1,0 +1,76 @@
+[project]
+name = "f1-pitstops-s6e5"
+version = "0.1.0"
+description = "Kaggle Playground S6E5 - F1 Pit Stops, tuto-fun mode"
+requires-python = ">=3.13,<3.14"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Pierre-Alexandre Guillemin", email = "pierre.alexandre.guillemin@gmail.com" }]
+
+dependencies = [
+    "pandas==2.3.3",
+    "numpy==2.4.6",
+    "scikit-learn==1.8.0",
+    "scipy==1.17.1",
+    "catboost==1.2.10",
+    "lightgbm==4.6.0",
+    "torch==2.12.0",
+    "pycox==0.3.0",
+    "lifelines==0.30.3",
+    "matplotlib==3.10.9",
+    "seaborn==0.13.2",
+    "jupyter==1.1.1",
+    "ipywidgets==8.1.8",
+    "kaggle==2.1.2",
+]
+
+[dependency-groups]
+dev = [
+    "ruff==0.15.14",
+    "mypy==2.1.0",
+    "pre-commit==4.6.0",
+    "pytest==9.0.3",
+    "nbstripout==0.9.1",
+    "detect-secrets==1.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.15.14",
+    "mypy==2.1.0",
+    "pre-commit==4.6.0",
+    "pytest==9.0.3",
+    "nbstripout==0.9.1",
+    "detect-secrets==1.5.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "ARG"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"notebooks/**/*.py" = ["E402"]
+"tests/**/*.py" = ["ARG"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = false
+files = ["src"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --no-header"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

@@ -24,7 +24,7 @@ Per CLAUDE.md root rule "Toujours rechercher avant d'affirmer", PyPI is the high
 
 | Lib | Latest | Wheel for cp313 | `requires_python` | Notes |
 |---|---|---|---|---|
-| pandas | 3.0.3 | YES (cp313) | >=3.11 | |
+| pandas | 2.3.3 | YES (cp313) | >=3.11 | **Downgraded from latest 3.0.3** — lifelines 0.30.3 constrains `pandas<3.0,>=2.1`. Discovered at install time, not via PyPI metadata. |
 | numpy | 2.4.6 | YES (cp313) | >=3.11 | |
 | scikit-learn | 1.8.0 | YES (cp313) | >=3.11 | |
 | catboost | 1.2.10 | YES (cp313) | unspecified | |
@@ -56,7 +56,7 @@ Per CLAUDE.md root rule "Toujours rechercher avant d'affirmer", PyPI is the high
 |---|---|
 | `pycox 0.3.0` API compat with `torch 2.12.0` on Python 3.13 — pycox is maintained by a single author, slow update cadence. | Only used in **optional Task 22** (DeepSurv MLP). Time-box-gated. If broken, we skip and document. |
 | `catboost 1.2.10` ships no `requires_python` classifier — but cp313 wheel exists, so install will succeed. | Verified wheel filename contains `cp313` tag explicitly. |
-| `pandas 3.0.x` is a major version bump from 2.x (deprecated APIs removed, e.g. `pd.read_csv(infer_datetime_format=True)`). | Notebooks use only stable pandas APIs (read_csv, groupby, merge, basic indexing). No deprecated kwargs needed. |
+| `pandas 3.0.x` not usable because lifelines constrains `<3.0`. Pinned to 2.3.3 (latest 2.x). | Discovered at install time. Documented above. |
 | `numpy 2.x` removed `np.NaN`, `np.bool_`, etc. | Notebooks use modern aliases (`np.nan`, native `bool`). Verified at notebook-implementation time. |
 
 ## Decision
