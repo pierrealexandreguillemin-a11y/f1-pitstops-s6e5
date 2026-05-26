@@ -23,9 +23,30 @@ Kaggle Playground Series S6E5 (Predicting F1 Pit Stops, deadline 2026-05-31, rew
 ## Stack — Python local-projet uniquement
 
 - **Python 3.13.13** via `.venv/` local au projet (Python 3.11 initial du plan non installé sur la machine ; pivot 3.13 documenté `docs/research/2026-05-26-deps-versions.md`).
-- **TOUT** s'invoque via `.venv/Scripts/python.exe -m <module>` ou `.venv/Scripts/<tool>.exe` — JAMAIS `python`, `pip`, `pytest`, `ruff`, `jupyter`, `kaggle`, `pre-commit` nus.
 - **Zéro contamination** système ou autres projets : si tu touches au PATH global ou à une install Python hors `.venv/`, **stop**.
 - `pyproject.toml` pins exacts ; `requirements.lock` capture résolus ; `scripts/check_lock_sync.py` vérifie la cohérence (pre-push hook).
+
+### CONTAMINATION CONNUE — user-site Python 3.13
+
+Le laptop a un user-site Python pollué : `C:/Users/pierr/AppData/Roaming/Python/Python313/Scripts/` contient ~30+ exes (`jupyter-nbconvert`, `detect-secrets`, `accelerate`, `celery`, `coverage`, `kaggle`, etc.) qui apparaissent dans `$PATH` AVANT `.venv/Scripts/`.
+
+**Conséquence** : `.venv/Scripts/python.exe -m jupyter <cmd>` dispatche vers `jupyter-<cmd>.exe` via PATH lookup → trouve la version user-site (mauvais Python, dépendances absentes). Bug observé une fois sur `nbconvert` au bootstrap.
+
+### RÈGLE DURE — Bash invocations
+
+**Toujours préfixer** :
+
+```bash
+cd C:/Dev/f1-pitstops-s6e5 && source .venv/Scripts/activate && <command>
+```
+
+Après `source activate`, `which python | which jupyter | which kaggle | which pytest | which ruff` résolvent TOUS vers `.venv/Scripts/`. Vérifié 2026-05-27.
+
+**Fallback équivalent** (si activate impossible) : appeler l'exe absolu directement, ex. `.venv/Scripts/jupyter-nbconvert.exe ...`, `.venv/Scripts/kaggle.exe ...`.
+
+**À PROSCRIRE** : `python -m jupyter`, `python -m kaggle`, ou tout dispatcher qui sub-spawne via PATH sans activate préalable.
+
+**Doctor** : `bash scripts/doctor.sh` audit ponctuel — vérifie qu'aucun tool ne résout hors venv.
 
 ## ISO/SOTA cadre (light, per spec §13)
 
