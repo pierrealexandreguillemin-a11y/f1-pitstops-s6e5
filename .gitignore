@@ -1,0 +1,34 @@
+# Virtual env
+.venv/
+venv/
+
+# Data (kaggle-downloaded, never commit)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Notebook artifacts
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Submissions (track via README table, not CSV in git)
+submissions/*.csv
+!submissions/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
