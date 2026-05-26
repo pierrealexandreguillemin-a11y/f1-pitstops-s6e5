@@ -1,6 +1,8 @@
 # F1 Pit Stops S6E5 Tuto-Fun — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **STATUS : SUPERSEDED 2026-05-27.** Of the 27 tasks below, Tasks 1-13 (Phase 0 bootstrap + src/ TDD + data download) were executed. Tasks 14-27 (notebooks 01-05 + ISO/SOTA cadre + MoE + DeepSurv + session-end final memo) **abandonnés** suite re-scope : projet mal calibré pour Swag tier (1 t-shirt, 10 submits/jour, AUC, 4 jours). Form pivote vers `.py` scripts purs. Plan vivant = `README.md` v2 racine. **DO NOT execute Tasks 14+ of this plan.**
+
+> **For agentic workers:** ~~REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task.~~ Voir `README.md` v2 pour le plan vivant (3 submissions max : baseline → FE → ensemble).
 
 **Goal:** Build a 6-notebook pedagogical Kaggle Playground entry (S6E5 — Predicting F1 Pit Stops, deadline 2026-05-31) that walks through tabular ML techniques (baseline → domain FE → temporal reframing → MoE bonus) while applying light ISO/SOTA discipline and a day-1 session-end skill projection.
 

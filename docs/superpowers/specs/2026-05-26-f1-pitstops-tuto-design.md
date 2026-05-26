@@ -1,8 +1,12 @@
 # Design — Kaggle Playground S6E5 "Predicting F1 Pit Stops" (tuto-fun mode)
 
+> **STATUS : SUPERSEDED 2026-05-27.** Over-scoped (6 notebooks, ISO/SOTA cadre, MoE bonus, survival analysis, session-end skill projection) for a Swag-prize Playground with 10 submits/day and 4-day window. User explicit feedback : "projet mal scopé". Replaced by `README.md` v2 (3 `.py` scripts : baseline → FE → ensemble/external). Kept here for archive — DO NOT execute this plan.
+>
+> Key facts learned from Kaggle CLI post-spec : metric = AUC (confirmed, not "TBD"), 10 submits/day (not 5), submission format = probabilities ∈ [0,1] (not binary), external data allowed.
+
 - **Date** : 2026-05-26
 - **Author** : pierre-alexandre + Claude
-- **Status** : Draft → awaiting user review before plan
+- **Status** : ~~Draft → awaiting user review before plan~~ **SUPERSEDED 2026-05-27 — archive only**
 - **Companion project** : runs in parallel with `C:/Dev/orbit-wars` ($50k Kaggle competition, deadline 2026-06-23). **Strict isolation** : no shared venv, no cross-imports, no shared time-budget pressure.
 
 ---
