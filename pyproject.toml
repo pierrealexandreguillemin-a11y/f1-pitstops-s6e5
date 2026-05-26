@@ -1,7 +1,7 @@
 [project]
 name = "f1-pitstops-s6e5"
 version = "0.1.0"
-description = "Kaggle Playground S6E5 - F1 Pit Stops, tuto-fun mode"
+description = "Kaggle Playground S6E5 - F1 Pit Stops (Swag tier, AUC, deadline 2026-05-31)"
 requires-python = ">=3.13,<3.14"
 readme = "README.md"
 license = { text = "MIT" }
@@ -14,13 +14,8 @@ dependencies = [
     "scipy==1.17.1",
     "catboost==1.2.10",
     "lightgbm==4.6.0",
-    "torch==2.12.0",
-    "pycox==0.3.0",
-    "lifelines==0.30.3",
     "matplotlib==3.10.9",
     "seaborn==0.13.2",
-    "jupyter==1.1.1",
-    "ipywidgets==8.1.8",
     "kaggle==2.1.2",
 ]
 
@@ -30,7 +25,6 @@ dev = [
     "mypy==2.1.0",
     "pre-commit==4.6.0",
     "pytest==9.0.3",
-    "nbstripout==0.9.1",
     "detect-secrets==1.5.0",
 ]
 
@@ -40,7 +34,6 @@ dev = [
     "mypy==2.1.0",
     "pre-commit==4.6.0",
     "pytest==9.0.3",
-    "nbstripout==0.9.1",
     "detect-secrets==1.5.0",
 ]
 
@@ -53,7 +46,6 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "ARG"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"notebooks/**/*.py" = ["E402"]
 "tests/**/*.py" = ["ARG"]
 
 [tool.mypy]
