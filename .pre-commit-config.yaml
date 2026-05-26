@@ -27,3 +27,19 @@ repos:
     hooks:
       - id: detect-secrets
         args: ["--baseline", ".secrets.baseline"]
+
+  - repo: local
+    hooks:
+      - id: lock-sync-check
+        name: requirements.lock sync vs pyproject.toml
+        entry: .venv/Scripts/python.exe scripts/check_lock_sync.py
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: pytest-sanity
+        name: pytest sanity asserts
+        entry: .venv/Scripts/python.exe -m pytest tests/ -q
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
