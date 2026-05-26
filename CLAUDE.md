@@ -23,30 +23,26 @@ Kaggle Playground Series S6E5 (Predicting F1 Pit Stops, deadline 2026-05-31, rew
 ## Stack — Python local-projet uniquement
 
 - **Python 3.13.13** via `.venv/` local au projet (Python 3.11 initial du plan non installé sur la machine ; pivot 3.13 documenté `docs/research/2026-05-26-deps-versions.md`).
-- **Zéro contamination** système ou autres projets : si tu touches au PATH global ou à une install Python hors `.venv/`, **stop**.
 - `pyproject.toml` pins exacts ; `requirements.lock` capture résolus ; `scripts/check_lock_sync.py` vérifie la cohérence (pre-push hook).
 
-### CONTAMINATION CONNUE — user-site Python 3.13
+### Workflow — appel direct, jamais de dispatcher PATH
 
-Le laptop a un user-site Python pollué : `C:/Users/pierr/AppData/Roaming/Python/Python313/Scripts/` contient ~30+ exes (`jupyter-nbconvert`, `detect-secrets`, `accelerate`, `celery`, `coverage`, `kaggle`, etc.) qui apparaissent dans `$PATH` AVANT `.venv/Scripts/`.
+Le laptop a un user-site Python pollué (`C:/Users/pierr/AppData/Roaming/Python/Python313/Scripts/`) sur `$PATH` AVANT `.venv/Scripts/`. Toute commande qui sub-dispatche via PATH (typiquement `jupyter <subcmd>` → `jupyter-<subcmd>.exe`) tombe sur la version user-site → mauvais Python.
 
-**Conséquence** : `.venv/Scripts/python.exe -m jupyter <cmd>` dispatche vers `jupyter-<cmd>.exe` via PATH lookup → trouve la version user-site (mauvais Python, dépendances absentes). Bug observé une fois sur `nbconvert` au bootstrap.
+**Le fix est structurel, pas dans une règle de discipline** :
 
-### RÈGLE DURE — Bash invocations
+| Op | Invocation | Pourquoi pas de contamination |
+|---|---|---|
+| Lance un notebook | `.venv/Scripts/python.exe scripts/run_notebook.py notebooks/NN.ipynb` | Pas de jupyter CLI : nbconvert API Python in-process |
+| Tests | `.venv/Scripts/python.exe -m pytest tests/` | pytest ne dispatche pas |
+| Lint | `.venv/Scripts/python.exe -m ruff check .` | ruff = binaire unique |
+| Submit Kaggle | `.venv/Scripts/kaggle.exe ...` (exe absolu) | Appel direct, pas de PATH lookup |
+| nbstripout (CLI) | non utilisé — passé par `scripts/run_notebook.py` (API Python) | — |
+| pre-commit | hooks installés via `.venv/Scripts/pre-commit.exe install`, lancés par git | hooks tournent dans pre-commit-managed venvs isolés |
 
-**Toujours préfixer** :
+**Si tu dois ajouter une nouvelle commande** : vérifie qu'elle n'utilise pas un sous-exe via PATH. Si oui → wrap dans un script Python `scripts/<op>.py` qui appelle l'API Python directement. Voir `scripts/run_notebook.py` comme template.
 
-```bash
-cd C:/Dev/f1-pitstops-s6e5 && source .venv/Scripts/activate && <command>
-```
-
-Après `source activate`, `which python | which jupyter | which kaggle | which pytest | which ruff` résolvent TOUS vers `.venv/Scripts/`. Vérifié 2026-05-27.
-
-**Fallback équivalent** (si activate impossible) : appeler l'exe absolu directement, ex. `.venv/Scripts/jupyter-nbconvert.exe ...`, `.venv/Scripts/kaggle.exe ...`.
-
-**À PROSCRIRE** : `python -m jupyter`, `python -m kaggle`, ou tout dispatcher qui sub-spawne via PATH sans activate préalable.
-
-**Doctor** : `bash scripts/doctor.sh` audit ponctuel — vérifie qu'aucun tool ne résout hors venv.
+`jupyter` CLI = INTERDIT dans ce projet. Aucune doc, aucun script, aucun commit ne doit l'appeler.
 
 ## ISO/SOTA cadre (light, per spec §13)
 
