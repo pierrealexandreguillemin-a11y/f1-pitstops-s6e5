@@ -39,10 +39,12 @@ py -3.13 -m venv .venv
 | # | Approach | Script | What it teaches |
 |---|---|---|---|
 | 01 | **CatBoost defaults + GroupKFold(Race+Year)** | `scripts/run_01_baseline.py` | Baseline-first principle, group-aware CV, AUC anchor |
-| 02 | **+ Domain FE** (pit window, undercut, year×compound, degradation rate, stint progression) | `scripts/run_02_domain_fe.py` | FE vs hyperparam tuning ROI on tabular |
+| 02 | **+ Row-level FE** (Compound×Stint/Year, TyreLife/Stint, LapTime vs Race-median, target-enc Driver) | `scripts/run_02_row_fe.py` | FE vs hyperparam tuning ROI on tabular |
 | 03 | **+ Ensemble LightGBM** or **external F1 dataset augmentation** (time-permitting) | `scripts/run_03_*.py` | Model diversity vs more data |
 
-Ship a submission only if `AUC_CV ≥ baseline + 0.5pp` AND `paired fold majority positive`. CV-LB gap = data point, not a target.
+> **Data constraint** (found 2026-05-28, see `docs/eda/2026-05-28-data-integrity.md`) : the competition dataset is row-shuffled at the `(Race, Year, Driver)` level — **62% of train groups have non-monotonic `Stint`**, 12.75% of consecutive-lap transitions show Stint decreasing. Intra-stint `TyreLife` is preserved (100%). All time-series FE (`laps_since_pit`, rolling lap-time, undercut, stint progression) is **broken** and excluded from submit-02. Only row-level FE.
+
+Ship a submission only if `AUC_CV ≥ baseline + 0.5pp` AND `paired fold majority positive`. CV-LB gap = data point, not a target. Expected fold variance ~±0.010 under GroupKFold (data noise, not bug — confirmed by other competitors).
 
 ## Tracking table
 
