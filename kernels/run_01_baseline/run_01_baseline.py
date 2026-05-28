@@ -5,8 +5,8 @@ needs the competition data attached; no kernel_sources / dataset_sources).
 
 Repo traceability:
     repo:    https://github.com/-/f1-pitstops-s6e5  (local-only at push time)
-    git_ref: f1d4a7e
-    version: v1
+    git_ref: 7230917
+    version: v2 (v1 failed: /kaggle/input/playground-series-s6e5/ path 404 -> use glob)
     written: 2026-05-28
 
 Output (in /kaggle/working/):
@@ -32,7 +32,7 @@ from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
 from sklearn.model_selection import GroupKFold
 
 # ---------- Configuration ----------
-INPUT = Path("/kaggle/input/playground-series-s6e5")
+INPUT_ROOT = Path("/kaggle/input")
 OUTPUT = Path("/kaggle/working")
 SEED = 42
 N_SPLITS = 5
@@ -43,12 +43,35 @@ EXPECTED_TEST_ROWS = 188_165
 
 
 # ---------- Inline helpers (mirror src.* from repo) ----------
+def _walk_input(root: Path, max_depth: int = 4) -> None:
+    """Print /kaggle/input/ tree (diagnostic - finds real mount path)."""
+    print(f"  walking {root} (max_depth={max_depth}):")
+    if not root.exists():
+        print(f"    !! {root} does not exist")
+        return
+    for path in sorted(root.rglob("*")):
+        depth = len(path.relative_to(root).parts)
+        if depth > max_depth:
+            continue
+        suffix = "/" if path.is_dir() else f"  ({path.stat().st_size} bytes)"
+        print(f"    {'  ' * (depth - 1)}{path.name}{suffix}")
+
+
+def _find_csv(name: str) -> Path:
+    """Glob /kaggle/input/**/<name> - robust to any mount path."""
+    matches = list(INPUT_ROOT.rglob(name))
+    if not matches:
+        raise FileNotFoundError(f"{name} not found anywhere under {INPUT_ROOT}")
+    print(f"  found {name} at {matches[0]} ({len(matches)} match(es))")
+    return matches[0]
+
+
 def load_train() -> pd.DataFrame:
-    return pd.read_csv(INPUT / "train.csv", engine="c")
+    return pd.read_csv(_find_csv("train.csv"), engine="c")
 
 
 def load_test() -> pd.DataFrame:
-    return pd.read_csv(INPUT / "test.csv", engine="c")
+    return pd.read_csv(_find_csv("test.csv"), engine="c")
 
 
 def make_group_kfold(df: pd.DataFrame, n_splits: int = N_SPLITS):
@@ -95,6 +118,7 @@ def main() -> None:
     print("=" * 78)
 
     print("\n[1/5] Load data + NaN audit")
+    _walk_input(INPUT_ROOT, max_depth=3)
     train = load_train()
     test = load_test()
     nan_audit(train, "train")
@@ -205,8 +229,8 @@ def main() -> None:
 
     summary_path = OUTPUT / "oof_summary.json"
     summary["total_seconds"] = round(time.time() - t_start, 1)
-    summary["git_ref"] = "f1d4a7e"
-    summary["version"] = "v1"
+    summary["git_ref"] = "7230917"
+    summary["version"] = "v2"
     summary["seed"] = SEED
     summary["n_splits"] = N_SPLITS
     summary["cat_features"] = CAT_FEATURES
