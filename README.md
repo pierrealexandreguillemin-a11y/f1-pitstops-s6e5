@@ -51,8 +51,8 @@ Ship a submission only if `AUC_CV ≥ baseline + 0.5pp` AND `paired fold majorit
 | # | Date | Approach | OOF AUC | Public LB | Δ vs baseline | Key insight |
 |---|------|----------|---------|-----------|---------------|-------------|
 | 01 | 2026-05-28 | CatBoost defaults + GroupKFold(Race+Year) | 0.9294 | **0.94457** | — (anchor) | CV-LB gap +1.52pp (GroupKFold pessimiste); LB rank #1849/2703 (top 68%); median 0.948, top 0.9549 → baseline insuffisant, need FE |
-| 02 | TBD | + (Y,R,D) train-lookup aggregates + Aadi Gupta + StratifiedKFold + CatBoost tunés | TBD | TBD | TBD | TBD |
-| 03 | TBD | + RealMLP/TabPFN diversity ensemble + LR stacking + isotonic calibration (if time) | TBD | TBD | TBD | TBD |
+| 02 | TBD | **Strategy 1** : (Y,R,D) train-lookup aggregates + Aadi Gupta external + 9 cross-cats + frequency encoding + StratifiedKFold + CatBoost tunés. Plan : [`docs/plans/2026-05-28-submit-02-plan.md`](docs/plans/2026-05-28-submit-02-plan.md) | TBD (cible 0.949-0.952) | TBD (cible 0.950-0.952) | TBD | TBD |
+| 03 | TBD | **Strategy 3** : Strategy 1 + TabPFN-3 single model (diversity NN) + Logistic Regression meta-stacker on OOF + isotonic calibration. Plan : [`docs/plans/2026-05-28-submit-03-plan.md`](docs/plans/2026-05-28-submit-03-plan.md) | TBD (cible 0.952-0.954) | TBD (cible 0.953-0.954) | TBD | TBD |
 
 Filled after each submit. Empty cells = not yet measured (never "expected").
 
