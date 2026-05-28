@@ -47,6 +47,8 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ARG"]
+"scripts/**/*.py" = ["N806"]  # sklearn convention: X (feature matrix) uppercase
+"kernels/**/*.py" = ["N806"]  # Kaggle kernel scripts: same sklearn convention
 
 [tool.mypy]
 python_version = "3.13"

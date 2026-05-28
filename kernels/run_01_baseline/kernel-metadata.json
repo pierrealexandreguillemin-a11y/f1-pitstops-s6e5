@@ -1,0 +1,14 @@
+{
+  "id": "pguillemin/f1-pitstops-s6e5-submit-01-baseline",
+  "title": "f1-pitstops-s6e5 submit-01 baseline",
+  "code_file": "run_01_baseline.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "dataset_sources": [],
+  "competition_sources": ["playground-series-s6e5"],
+  "kernel_sources": [],
+  "model_sources": []
+}
