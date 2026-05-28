@@ -50,9 +50,9 @@ Ship a submission only if `AUC_CV ≥ baseline + 0.5pp` AND `paired fold majorit
 
 | # | Date | Approach | OOF AUC | Public LB | Δ vs baseline | Key insight |
 |---|------|----------|---------|-----------|---------------|-------------|
-| 01 | TBD | CatBoost default | TBD | TBD | — (anchor) | TBD |
-| 02 | TBD | + domain FE | TBD | TBD | TBD | TBD |
-| 03 | TBD | + LightGBM ensemble or external data | TBD | TBD | TBD | TBD |
+| 01 | 2026-05-28 | CatBoost defaults + GroupKFold(Race+Year) | 0.9294 | **0.94457** | — (anchor) | CV-LB gap +1.52pp (GroupKFold pessimiste); LB rank #1849/2703 (top 68%); median 0.948, top 0.9549 → baseline insuffisant, need FE |
+| 02 | TBD | + (Y,R,D) train-lookup aggregates + Aadi Gupta + StratifiedKFold + CatBoost tunés | TBD | TBD | TBD | TBD |
+| 03 | TBD | + RealMLP/TabPFN diversity ensemble + LR stacking + isotonic calibration (if time) | TBD | TBD | TBD | TBD |
 
 Filled after each submit. Empty cells = not yet measured (never "expected").
 

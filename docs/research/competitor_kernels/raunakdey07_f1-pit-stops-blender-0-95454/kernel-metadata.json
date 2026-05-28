@@ -1,0 +1,29 @@
+{
+  "id": "raunakdey07/f1-pit-stops-blender-0-95454",
+  "id_no": 118563947,
+  "title": "F1 Pit Stops Blender 0.95454",
+  "code_file": "f1-pit-stops-blender-0-95454.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": false,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "keywords": [],
+  "dataset_sources": [
+    "",
+    "flexonafft/f1-submissions",
+    "raunakdey07/f1-pit-stops-0-95454",
+    "nawfeelrahman1124444/pss6ep5448"
+  ],
+  "kernel_sources": [
+    "flexonafft/f1-best-catboost-solution-0-95259",
+    "anthonytherrien/predicting-f1-pit-stops-nn-residual-network"
+  ],
+  "competition_sources": [
+    "playground-series-s6e5"
+  ],
+  "model_sources": [],
+  "docker_image": "gcr.io/kaggle-images/python@sha256:c370a5ff133d162d17c2dca332b50f3e85c0b0ed1471ee18e98e3009eee80b08",
+  "machine_shape": "None"
+}

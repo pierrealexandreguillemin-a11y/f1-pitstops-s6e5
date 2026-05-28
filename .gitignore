@@ -32,3 +32,9 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Kaggle kernel pulls — keep only .md extracts
+docs/research/competitor_kernels/**/*.ipynb
+
+# Kaggle kernel pulled outputs (CSV/logs from runs)
+kernels/*/output/
