@@ -5,6 +5,7 @@ venv/
 # Data (kaggle-downloaded, never commit)
 data/raw/*
 data/processed/*
+data/external/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
@@ -14,6 +15,7 @@ data/processed/*
 
 # Submissions (track via README table, not CSV in git)
 submissions/*.csv
+submissions/*.parquet
 !submissions/.gitkeep
 
 # Python
