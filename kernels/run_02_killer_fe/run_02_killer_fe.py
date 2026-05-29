@@ -18,14 +18,26 @@ Strategy 1 — beat submit-01 LB 0.94457 via incremental FE:
 - B0-B7 quality gates.
 
 Repo traceability:
-    git_ref:  bd5efb3
-    version:  v1
-    written:  2026-05-28
+    git_ref:  submit-02-checkpoint
+    version:  v2-checkpoint
+    written:  2026-05-29
     target:   OOF 0.949-0.952, LB 0.950-0.952
 
+Timeout-proof relaunch (v2):
+    Kaggle hard-kills at 12 h; output commits only on clean exit. 5 folds x
+    ~4.95 h = ~24.6 h > 12 h, so v1 produced ZERO output. v2 checkpoints each
+    fold immediately, self-terminates cleanly under an 11 h budget (~2 folds/run),
+    and resumes from prior-run checkpoints mounted via dataset_sources. No quality
+    change: iterations=11000 + early_stop=500 untouched. See
+    docs/plans/2026-05-29-submit-02-checkpoint-resume-plan.md.
+
 Output (in /kaggle/working/):
-    02_killer_fe.csv             submission (id, PitNextLap)
-    fold_metrics.csv             per-fold + per-year metrics
+    ckpt/fold_{i}.npz            per-fold va_idx/va_pred/test_pred/feat_imp (resume)
+    ckpt/fold_{i}_meta.json      per-fold metrics (resume)
+    ckpt/fold_{i}.cbm            per-fold model (submit-03 / reproducibility)
+    RESUME_STATE.json            written when folds incomplete (no submission yet)
+    02_killer_fe.csv             submission (id, PitNextLap) — only when 5/5 folds
+    fold_metrics.csv             per-fold metrics
     oof_predictions.parquet      id, oof_pred, y, fold (for submit-03 stacking)
     feature_importance.csv       feature, importance (CatBoost get_feature_importance)
     oof_summary.json             aggregate metrics + meta
@@ -34,6 +46,7 @@ Output (in /kaggle/working/):
 from __future__ import annotations
 
 import json
+import shutil
 import time
 from pathlib import Path
 
@@ -46,12 +59,26 @@ from sklearn.model_selection import StratifiedKFold
 # ---------- Configuration ----------
 INPUT_ROOT = Path("/kaggle/input")
 OUTPUT = Path("/kaggle/working")
+CKPT_DIR = OUTPUT / "ckpt"
 SEED = 42
 N_SPLITS = 5
 EXPECTED_TEST_ROWS = 188_165
 TARGET = "PitNextLap"
 ID_COL = "id"
 EPS = 1e-6
+
+# ---------- Checkpoint / resume (timeout-proof relaunch) ----------
+# SMOKE: throwaway plumbing validation (iterations=30, ~2 min). Proves the full
+# train -> save ckpt -> clean exit -> reload -> skip -> assemble loop BEFORE
+# committing real hours or any GPU quota. NOT the submission. Flip to False for
+# real runs. (kaggle push cannot pass env vars -> constant edit is the toggle.)
+SMOKE = False
+
+# Clean self-termination budget. Kaggle hard-kills at 12 h CPU with no graceful
+# signal; /kaggle/working commits ONLY on clean exit. Measured fold = ~4.95 h
+# (v1 logs). 11 h budget + adaptive estimate => 2 folds/run, output always commits.
+TIME_BUDGET_SECONDS = 11 * 3600
+FOLD_TIME_PRIOR_S = 5.5 * 3600  # conservative prior until a fold finishes this run
 
 # Base categoricals (always-present, raw)
 BASE_CAT = ["Driver", "Compound", "Race", "Year"]
@@ -105,6 +132,12 @@ CATBOOST_PARAMS = {
     "allow_writing_files": False,
     "random_seed": SEED,
 }
+
+if SMOKE:
+    # Throwaway plumbing validation only — never a submission.
+    CATBOOST_PARAMS["iterations"] = 30
+    CATBOOST_PARAMS["early_stopping_rounds"] = 10
+    CATBOOST_PARAMS["verbose"] = 10
 
 
 # ---------- I/O helpers ----------
@@ -373,6 +406,61 @@ def per_year_auc(y_true: np.ndarray, y_pred: np.ndarray, year: np.ndarray) -> di
     return out
 
 
+# ---------- Checkpoint / resume helpers ----------
+def restore_checkpoints() -> list[int]:
+    """Copy prior-run fold checkpoints from mounted input into OUTPUT/ckpt.
+
+    Resume runs mount the previous run's ckpt dataset via dataset_sources. Each
+    batch run starts with an empty /kaggle/working, so prior ckpts MUST be copied
+    in before they can be loaded (kaggle-deployment skill, Optuna .db pattern).
+    Returns the sorted list of fold indices found.
+    """
+    CKPT_DIR.mkdir(parents=True, exist_ok=True)
+    found: set[int] = set()
+    if INPUT_ROOT.exists():
+        for npz in INPUT_ROOT.rglob("ckpt/fold_*.npz"):
+            dst = CKPT_DIR / npz.name
+            if not dst.exists():
+                shutil.copy2(npz, dst)
+            meta_src = npz.with_name(npz.stem + "_meta.json")
+            if meta_src.exists():
+                shutil.copy2(meta_src, CKPT_DIR / meta_src.name)
+    for npz in CKPT_DIR.glob("fold_*.npz"):
+        found.add(int(npz.stem.split("_")[1]))
+    restored = sorted(found)
+    print(f"  restored checkpoints for folds {restored} (from {INPUT_ROOT})")
+    return restored
+
+
+def save_fold_ckpt(
+    fold_idx: int,
+    va_idx: np.ndarray,
+    va_pred: np.ndarray,
+    test_pred: np.ndarray,
+    feat_imp: np.ndarray,
+    meta: dict,
+) -> None:
+    """Write one fold's checkpoint IMMEDIATELY after training (timeout-safe)."""
+    np.savez(
+        CKPT_DIR / f"fold_{fold_idx}.npz",
+        va_idx=va_idx,
+        va_pred=va_pred,
+        test_pred=test_pred,
+        feat_imp=feat_imp,
+    )
+    (CKPT_DIR / f"fold_{fold_idx}_meta.json").write_text(
+        json.dumps(meta, indent=2), encoding="utf-8"
+    )
+    print(f"    checkpoint saved: ckpt/fold_{fold_idx}.npz")
+
+
+def load_fold_ckpt(fold_idx: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
+    """Load a previously-trained fold's checkpoint."""
+    data = np.load(CKPT_DIR / f"fold_{fold_idx}.npz")
+    meta = json.loads((CKPT_DIR / f"fold_{fold_idx}_meta.json").read_text(encoding="utf-8"))
+    return data["va_idx"], data["va_pred"], data["test_pred"], data["feat_imp"], meta
+
+
 # ---------- Main ----------
 def main() -> None:
     np.random.seed(SEED)
@@ -481,15 +569,44 @@ def main() -> None:
     y_original = original[TARGET].astype(int).values
     test_ids = test[ID_COL]
 
-    # ---- 7. CV training loop ----
-    print("\n[7/7] Train 5 folds (comp_train_fold + original concat per fold)")
+    # ---- 7. CV training loop (resume-aware, timeout-proof) ----
+    print("\n[7/7] Train 5 folds (resume-aware) — comp_train_fold + original per fold")
+    restored = restore_checkpoints()
     oof = np.zeros(len(X_train_comp), dtype=np.float64)
     test_preds_per_fold = np.zeros((N_SPLITS, len(X_test)), dtype=np.float64)
-    fold_rows: list[dict] = []
-    per_year_records: list[dict] = []
-    feature_importances: list[np.ndarray] = []
+    fold_meta: dict[int, dict] = {}  # fold_idx -> meta (preds reconstructed below)
+    completed: set[int] = set()
+    trained_seconds_this_run: list[float] = []
 
     for fold_idx, (tr_idx, va_idx) in enumerate(splits):
+        # --- Resume: load a fold already trained in a prior (or this) run ---
+        if fold_idx in restored:
+            va_idx_ck, va_pred, test_pred_fold, _feat_imp, meta = load_fold_ckpt(fold_idx)
+            assert np.array_equal(va_idx_ck, va_idx), (
+                f"fold {fold_idx} va_idx mismatch vs checkpoint — non-deterministic FE/split"
+            )
+            oof[va_idx] = va_pred
+            test_preds_per_fold[fold_idx] = test_pred_fold
+            fold_meta[fold_idx] = meta
+            completed.add(fold_idx)
+            print(f"  fold {fold_idx} | LOADED from checkpoint | AUC={meta['auc']:.4f}")
+            continue
+
+        # --- Time-budget guard: never start a fold we can't finish cleanly ---
+        elapsed_run = time.time() - t_start
+        est = (
+            float(np.mean(trained_seconds_this_run))
+            if trained_seconds_this_run
+            else FOLD_TIME_PRIOR_S
+        )
+        if not SMOKE and elapsed_run + est > TIME_BUDGET_SECONDS:
+            print(
+                f"  time budget: elapsed={elapsed_run / 3600:.2f}h + est={est / 3600:.2f}h "
+                f"> {TIME_BUDGET_SECONDS / 3600:.0f}h — stopping cleanly before fold {fold_idx}"
+            )
+            break
+
+        # --- Train this fold ---
         t0 = time.time()
         X_tr = pd.concat([X_train_comp.iloc[tr_idx], X_original], axis=0, ignore_index=True)
         y_tr = np.concatenate([y_train_comp[tr_idx], y_original])
@@ -506,44 +623,89 @@ def main() -> None:
         )
 
         va_pred = model.predict_proba(X_va)[:, 1]
+        test_pred_fold = model.predict_proba(X_test)[:, 1]
+        feat_imp = model.get_feature_importance()
         oof[va_idx] = va_pred
-        test_preds_per_fold[fold_idx] = model.predict_proba(X_test)[:, 1]
-        feature_importances.append(model.get_feature_importance())
+        test_preds_per_fold[fold_idx] = test_pred_fold
 
-        m = {
-            "auc": float(roc_auc_score(y_va, va_pred)),
-            "logloss": float(log_loss(y_va, np.clip(va_pred, 1e-7, 1 - 1e-7))),
-            "brier": float(brier_score_loss(y_va, va_pred)),
-        }
         years_va = train.iloc[va_idx]["Year"].astype(int).values
         per_year_fold = per_year_auc(y_va, va_pred, years_va)
-        for year, stats in per_year_fold.items():
-            per_year_records.append({"fold": fold_idx, "year": year, **stats})
-
         best_iter = int(model.get_best_iteration())
         elapsed = time.time() - t0
-        fold_rows.append(
-            {
-                "fold": fold_idx,
-                "n_train": int(len(X_tr)),
-                "n_val": int(len(X_va)),
-                "best_iter": best_iter,
-                "auc": m["auc"],
-                "brier": m["brier"],
-                "logloss": m["logloss"],
-                "seconds": round(elapsed, 1),
-            }
-        )
+        meta = {
+            "fold": fold_idx,
+            "n_train": int(len(X_tr)),
+            "n_val": int(len(X_va)),
+            "best_iter": best_iter,
+            "auc": float(roc_auc_score(y_va, va_pred)),
+            "brier": float(brier_score_loss(y_va, va_pred)),
+            "logloss": float(log_loss(y_va, np.clip(va_pred, 1e-7, 1 - 1e-7))),
+            "seconds": round(elapsed, 1),
+            "per_year": [{"year": yr, **st} for yr, st in sorted(per_year_fold.items())],
+        }
+        # CHECKPOINT IMMEDIATELY — survives a clean exit, never batched to the end.
+        save_fold_ckpt(fold_idx, va_idx, va_pred, test_pred_fold, feat_imp, meta)
+        # Also persist the model for submit-03 / reproducibility (not needed for resume).
+        model.save_model(str(CKPT_DIR / f"fold_{fold_idx}.cbm"))
+
+        fold_meta[fold_idx] = meta
+        completed.add(fold_idx)
+        trained_seconds_this_run.append(elapsed)
         print(
             f"  fold {fold_idx} | n_tr={len(X_tr):>6} n_va={len(X_va):>6} | "
-            f"best_iter={best_iter:>4} | AUC={m['auc']:.4f} Brier={m['brier']:.4f} "
-            f"logloss={m['logloss']:.4f} | {elapsed:.1f}s"
+            f"best_iter={best_iter:>4} | AUC={meta['auc']:.4f} Brier={meta['brier']:.4f} "
+            f"logloss={meta['logloss']:.4f} | {elapsed:.1f}s"
         )
-        for year, stats in sorted(per_year_fold.items()):
+        for st in meta["per_year"]:
             print(
-                f"      year {year} | n={stats['n']:>6} | AUC={stats['auc']:.4f} | "
-                f"y_true_mean={stats['y_true_mean']:.4f} | y_pred_mean={stats['y_pred_mean']:.4f}"
+                f"      year {st['year']} | n={st['n']:>6} | AUC={st['auc']:.4f} | "
+                f"y_true_mean={st['y_true_mean']:.4f} | y_pred_mean={st['y_pred_mean']:.4f}"
             )
+
+    # ---- Rebuild fold_rows / per_year_records / feature_importances from completed folds ----
+    fold_rows = [
+        {
+            k: fold_meta[i][k]
+            for k in ("fold", "n_train", "n_val", "best_iter", "auc", "brier", "logloss", "seconds")
+        }
+        for i in sorted(completed)
+    ]
+    per_year_records = [
+        {"fold": i, **st} for i in sorted(completed) for st in fold_meta[i]["per_year"]
+    ]
+    feature_importances = [
+        np.load(CKPT_DIR / f"fold_{i}.npz")["feat_imp"] for i in sorted(completed)
+    ]
+
+    # ---- Completeness gate: assemble the submission only when all folds exist ----
+    if len(completed) < N_SPLITS:
+        remaining = sorted(set(range(N_SPLITS)) - completed)
+        print("\n" + "=" * 78)
+        print(
+            f"PARTIAL — {len(completed)}/{N_SPLITS} folds done {sorted(completed)}; "
+            f"remaining {remaining}"
+        )
+        print("=" * 78)
+        if fold_rows:
+            pd.DataFrame(fold_rows).to_csv(OUTPUT / "fold_metrics.csv", index=False)
+        resume_state = {
+            "completed_folds": sorted(completed),
+            "remaining_folds": remaining,
+            "n_splits": N_SPLITS,
+            "git_ref": "submit-02-checkpoint",
+            "elapsed_seconds": round(time.time() - t_start, 1),
+            "next_action": (
+                "download output, upload ckpt/ as dataset, add to dataset_sources, re-push"
+            ),
+        }
+        (OUTPUT / "RESUME_STATE.json").write_text(
+            json.dumps(resume_state, indent=2), encoding="utf-8"
+        )
+        print(f"  wrote RESUME_STATE.json — {len(completed)} fold checkpoints in ckpt/")
+        print("  NO submission written (folds incomplete). Re-push to continue.")
+        return
+
+    print(f"\n  all {N_SPLITS} folds present {sorted(completed)} — assembling submission")
 
     # ---- OOF aggregate ----
     print("\n[OOF aggregate]")
@@ -673,8 +835,8 @@ def main() -> None:
     # Summary JSON
     summary["per_year_oof"] = oof_per_year
     summary["total_seconds"] = round(time.time() - t_start, 1)
-    summary["git_ref"] = "bd5efb3"
-    summary["version"] = "v1"
+    summary["git_ref"] = "submit-02-checkpoint"
+    summary["version"] = "v2-checkpoint"
     summary["seed"] = SEED
     summary["n_splits"] = N_SPLITS
     summary["n_features"] = len(feature_cols)
