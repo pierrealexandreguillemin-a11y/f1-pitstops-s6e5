@@ -38,3 +38,4 @@ docs/research/competitor_kernels/**/*.ipynb
 
 # Kaggle kernel pulled outputs (CSV/logs from runs)
 kernels/*/output/
+kernels/run_02_killer_fe/.smoke/
