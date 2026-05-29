@@ -126,7 +126,8 @@ CATBOOST_PARAMS = {
     "bagging_temperature": 0.45,
     "loss_function": "Logloss",
     "eval_metric": "AUC",
-    "task_type": "CPU",
+    # Real run = GPU (no rsm -> no CatBoost GPU crash). CPU fallback: flip to "CPU".
+    "task_type": "GPU",
     "early_stopping_rounds": 500,
     "verbose": 200,
     "allow_writing_files": False,
