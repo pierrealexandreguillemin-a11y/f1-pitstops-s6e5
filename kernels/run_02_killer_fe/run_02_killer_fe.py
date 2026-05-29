@@ -120,6 +120,20 @@ CROSSES = [
     ("RacePhase_TyreLifeBin", ["RacePhase", "TyreLifeBin"]),
 ]
 
+# Plan-2c: drop the 5 high-card crosses whose CatBoost CTR overfit the random-row CV
+# (measured: +2.3pp OOF mirage, no LB transfer — see post-mortem). Filtering CROSSES
+# here propagates to ALL_CAT_FEATURES + frequency encoding (both derived from CROSSES).
+DROP_HIGH_CARD_CROSSES = False
+if DROP_HIGH_CARD_CROSSES:
+    _HIGH_CARD = {
+        "Driver_Race",
+        "Race_Compound_Stint",
+        "Race_Year",
+        "Driver_Compound",
+        "Race_Compound",
+    }
+    CROSSES = [c for c in CROSSES if c[0] not in _HIGH_CARD]
+
 # Bin features (all categorical after pd.cut)
 BIN_FEATURES = ["RacePhase", "LapBin", "TyreLifeBin", "PositionBin"]
 
