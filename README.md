@@ -51,8 +51,9 @@ Ship a submission only if `AUC_CV ≥ baseline + 0.5pp` AND `paired fold majorit
 | # | Date | Approach | OOF AUC | Public LB | Δ vs baseline | Key insight |
 |---|------|----------|---------|-----------|---------------|-------------|
 | 01 | 2026-05-28 | CatBoost defaults + GroupKFold(Race+Year) | 0.9294 | **0.94457** | — (anchor) | CV-LB gap +1.52pp (GroupKFold pessimiste); LB rank #1849/2703 (top 68%); median 0.948, top 0.9549 → baseline insuffisant, need FE |
-| 02 | TBD | **Strategy 1** : (Y,R,D) train-lookup aggregates + Aadi Gupta external + 9 cross-cats + frequency encoding + StratifiedKFold + CatBoost tunés. Plan : [`docs/plans/2026-05-28-submit-02-plan.md`](docs/plans/2026-05-28-submit-02-plan.md) | TBD (cible 0.949-0.952) | TBD (cible 0.950-0.952) | TBD | TBD |
-| 03 | TBD | **Strategy 3** : Strategy 1 + TabPFN-3 single model (diversity NN) + Logistic Regression meta-stacker on OOF + isotonic calibration. Plan : [`docs/plans/2026-05-28-submit-03-plan.md`](docs/plans/2026-05-28-submit-03-plan.md) | TBD (cible 0.952-0.954) | TBD (cible 0.953-0.954) | TBD | TBD |
+| 02 | 2026-05-29 | **Plan-2 "killer FE"** : (Y,R,D) aggregates + Aadi + 9 crosses + freq enc + StratifiedKFold + CatBoost 16k iter | 0.9794 | **0.94296** | **−0.16pp (RÉGRESSION)** | **CV MIRAGE** : CatBoost categorical-CTR overfit la CV random-row (mesuré : numeric-only OOF 0.9433≈LB, all-cats 0.9752). OOF non fiable. Post-mortem : [`docs/research/2026-05-29-submit-02-cv-lb-gap-postmortem.md`](docs/research/2026-05-29-submit-02-cv-lb-gap-postmortem.md) |
+| 03 | en vol | **Plan-2c** : Plan-2 MINUS les 5 crosses high-card (cause mesurée) + class weights. `scripts/run_03_plan2c_local.py`. (Plan-2b GPU all-cats discipliné = candidat //) | OOF en vol | non soumis | — | Ship gate : LB > 0.94457 (OOF non fiable, seul LB compte) |
+| — | gelé | **Plan-Ensemble** (ex-"submit-03") : diversité RealMLP/TabPFN + blend isotonic. [`docs/plans/2026-05-28-plan-ensemble-FROZEN.md`](docs/plans/2026-05-28-plan-ensemble-FROZEN.md) | — | — | — | **GELÉ** jusqu'à base > 0.944 LB |
 
 Filled after each submit. Empty cells = not yet measured (never "expected").
 
