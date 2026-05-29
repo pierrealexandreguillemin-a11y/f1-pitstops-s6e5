@@ -106,4 +106,4 @@ def test_restore_copies_prior_run_ckpts_and_discovers_folds(kernel):
 def test_smoke_constant_is_off_for_real_runs(kernel):
     # Guard: the throwaway smoke toggle must never be committed as True.
     assert kernel.SMOKE is False
-    assert kernel.CATBOOST_PARAMS["iterations"] == 11000
+    assert kernel.CATBOOST_PARAMS["iterations"] == 16000

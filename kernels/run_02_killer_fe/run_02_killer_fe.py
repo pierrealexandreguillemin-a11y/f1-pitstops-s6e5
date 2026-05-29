@@ -13,7 +13,7 @@ Strategy 1 — beat submit-01 LB 0.94457 via incremental FE:
 - ~22 domain features + 9 cross-categoricals + frequency encoding.
 - StratifiedKFold(5, shuffle, seed=42) replacing GroupKFold(Race+Year)
   which was pessimistic (CV-LB gap +1.52pp in submit-01).
-- CatBoost depth=8 lr=0.018 l2_leaf_reg=8.5 early_stop=500 iter=11000.
+- CatBoost depth=8 lr=0.018 l2_leaf_reg=8.5 early_stop=500 iter=16000 (GPU).
 - Per-fold + per-year AUC monitoring (defensive-pipeline finding).
 - B0-B7 quality gates.
 
@@ -34,13 +34,15 @@ Timeout-proof relaunch (v2):
 Output (in /kaggle/working/):
     ckpt/fold_{i}.npz            per-fold va_idx/va_pred/test_pred/feat_imp (resume)
     ckpt/fold_{i}_meta.json      per-fold metrics (resume)
-    ckpt/fold_{i}.cbm            per-fold model (submit-03 / reproducibility)
     RESUME_STATE.json            written when folds incomplete (no submission yet)
     02_killer_fe.csv             submission (id, PitNextLap) — only when 5/5 folds
-    fold_metrics.csv             per-fold metrics
+    test_predictions.parquet     id, test_pred (mean) + per-fold cols (submit-03 stacking)
     oof_predictions.parquet      id, oof_pred, y, fold (for submit-03 stacking)
+    fold_metrics.csv             per-fold metrics
     feature_importance.csv       feature, importance (CatBoost get_feature_importance)
     oof_summary.json             aggregate metrics + meta
+NB: .cbm models are NOT saved — at 16000 iters their CTR tables fill the 20GB disk
+(v2 fail). Resume + submit-03 use only the prediction artifacts above.
 """
 
 from __future__ import annotations
@@ -117,7 +119,10 @@ BIN_FEATURES = ["RacePhase", "LapBin", "TyreLifeBin", "PositionBin"]
 ALL_CAT_FEATURES = BASE_CAT + [c[0] for c in CROSSES] + BIN_FEATURES + ["IsOriginalData"]
 
 CATBOOST_PARAMS = {
-    "iterations": 11000,
+    # Bumped 11000 -> 16000: early-stop never fired at 11000 (model still climbing
+    # 0.9776->0.9781). early_stopping_rounds=500 will cut when it actually plateaus;
+    # 16000 is the ceiling. (.cbm no longer saved, so no disk cost from extra trees.)
+    "iterations": 16000,
     "learning_rate": 0.018,
     "depth": 8,
     "l2_leaf_reg": 8.5,
@@ -645,9 +650,12 @@ def main() -> None:
             "per_year": [{"year": yr, **st} for yr, st in sorted(per_year_fold.items())],
         }
         # CHECKPOINT IMMEDIATELY — survives a clean exit, never batched to the end.
+        # NB: we do NOT save the .cbm model. At 16000 iters the CatBoost CTR tables
+        # (18 high-cardinality cats + combinations) are multi-GB and filled the 20GB
+        # disk by fold 2 (v2 fail). The .npz preds are all resume / submit-03 need.
         save_fold_ckpt(fold_idx, va_idx, va_pred, test_pred_fold, feat_imp, meta)
-        # Also persist the model for submit-03 / reproducibility (not needed for resume).
-        model.save_model(str(CKPT_DIR / f"fold_{fold_idx}.cbm"))
+        free_gb = shutil.disk_usage(OUTPUT).free / 1e9
+        print(f"    disk free in {OUTPUT}: {free_gb:.2f} GB")
 
         fold_meta[fold_idx] = meta
         completed.add(fold_idx)
@@ -768,6 +776,13 @@ def main() -> None:
     sub_path = OUTPUT / "02_killer_fe.csv"
     sub.to_csv(sub_path, index=False)
     print(f"  wrote {sub_path} ({len(sub)} rows)")
+
+    # Test predictions for submit-03 stacking: mean + each fold-model column.
+    test_pred_df = pd.DataFrame({ID_COL: test_ids.to_numpy(), "test_pred": test_pred})
+    for k in range(N_SPLITS):
+        test_pred_df[f"fold_{k}"] = test_preds_per_fold[k]
+    test_pred_df.to_parquet(OUTPUT / "test_predictions.parquet", index=False)
+    print("  wrote test_predictions.parquet")
 
     fold_df = pd.DataFrame(fold_rows)
     (OUTPUT / "fold_metrics.csv").write_text(fold_df.to_csv(index=False), encoding="utf-8")
