@@ -1,5 +1,13 @@
 # Finding — train/test split is RANDOM-ROW (validates StratifiedKFold + (Y,R,D) aggregates)
 
+> **⚠️ CORRECTION (2026-05-29, post-LB).** The conclusion below — *"OOF ≈ LB,
+> trustworthy, safe to stack"* — was **REFUTED by the leaderboard**: submit-02 OOF
+> 0.9794 vs LB **0.94296** (3.6pp gap, regression vs submit-01 0.94457). The
+> random-row split facts here are correct, BUT they do NOT make the OOF trustworthy:
+> CatBoost's categorical CTR overfits the random-row CV (same cat levels in train+val
+> folds). The honest signal is ~0.943 (numeric-only CatBoost). See
+> `2026-05-29-submit-02-cv-lb-gap-postmortem.md`. Read that, not the conclusion below.
+
 > **Date** : 2026-05-29. Item 3 of the submit-02 improvement inventory: verify the
 > (Y,R,D) target-encoding aggregates are legitimate signal, not leakage, before
 > trusting the ~0.978 OOF or stacking on it for submit-03.
