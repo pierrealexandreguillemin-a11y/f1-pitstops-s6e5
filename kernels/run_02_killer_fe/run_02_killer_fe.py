@@ -13,15 +13,23 @@ Strategy 1 — beat submit-01 LB 0.94457 via incremental FE:
 - ~22 domain features + 9 cross-categoricals + frequency encoding.
 - StratifiedKFold(5, shuffle, seed=42) replacing GroupKFold(Race+Year)
   which was pessimistic (CV-LB gap +1.52pp in submit-01).
-- CatBoost depth=8 lr=0.018 l2_leaf_reg=8.5 early_stop=500 iter=16000 (GPU).
+- CatBoost depth=8 lr=0.018 l2_leaf_reg=8.5, Plan-2b disciplined config.
 - Per-fold + per-year AUC monitoring (defensive-pipeline finding).
 - B0-B7 quality gates.
 
+Plan-2b (disciplined repair) — ships as submit-03:
+    Plan-2 (submit-02) over-trained to 16000 iters (early-stop never fired under
+    StratifiedKFold) -> OOF 0.979 but LB 0.94296, a REGRESSION vs submit-01 0.94457.
+    The OOF was a CV mirage. Fix per documented best CatBoost (kernel 0.95259):
+    cap iterations 16000->8000, auto_class_weights=Balanced, 2-seed ensemble (42,777).
+    Goal: an OOF that actually predicts LB and beats 0.944. The ensemble/stacking
+    plan stays FROZEN until this base beats 0.944 on LB (verified).
+
 Repo traceability:
-    git_ref:  submit-02-checkpoint
-    version:  v2-checkpoint
+    git_ref:  plan-2b-disciplined
+    version:  submit-03
     written:  2026-05-29
-    target:   OOF 0.949-0.952, LB 0.950-0.952
+    target:   LB > 0.94457 (beat submit-01), OOF~=LB (no mirage)
 
 Timeout-proof relaunch (v2):
     Kaggle hard-kills at 12 h; output commits only on clean exit. 5 folds x
@@ -118,11 +126,14 @@ BIN_FEATURES = ["RacePhase", "LapBin", "TyreLifeBin", "PositionBin"]
 # Cats that get frequency-encoded (BASE_CAT + crosses + bins)
 ALL_CAT_FEATURES = BASE_CAT + [c[0] for c in CROSSES] + BIN_FEATURES + ["IsOriginalData"]
 
+# Plan-2b (disciplined repair of Plan-2 mirage). submit-02 (Plan-2) over-trained to
+# 16000 iters (early-stop never fired under StratifiedKFold) -> OOF 0.979 / LB 0.943
+# (regression vs submit-01 0.944). The documented best CatBoost (kernel 0.95259) caps
+# at ~8140 iters + auto_class_weights=Balanced + 2-seed ensemble. We replicate that
+# discipline. random_seed is set per-seed in the CV loop.
+SEEDS = (42, 777)
 CATBOOST_PARAMS = {
-    # Bumped 11000 -> 16000: early-stop never fired at 11000 (model still climbing
-    # 0.9776->0.9781). early_stopping_rounds=500 will cut when it actually plateaus;
-    # 16000 is the ceiling. (.cbm no longer saved, so no disk cost from extra trees.)
-    "iterations": 16000,
+    "iterations": 8000,
     "learning_rate": 0.018,
     "depth": 8,
     "l2_leaf_reg": 8.5,
@@ -131,12 +142,12 @@ CATBOOST_PARAMS = {
     "bagging_temperature": 0.45,
     "loss_function": "Logloss",
     "eval_metric": "AUC",
+    "auto_class_weights": "Balanced",
     # Real run = GPU (no rsm -> no CatBoost GPU crash). CPU fallback: flip to "CPU".
     "task_type": "GPU",
     "early_stopping_rounds": 500,
-    "verbose": 200,
+    "verbose": 500,
     "allow_writing_files": False,
-    "random_seed": SEED,
 }
 
 if SMOKE:
@@ -619,24 +630,32 @@ def main() -> None:
         X_va = X_train_comp.iloc[va_idx]
         y_va = y_train_comp[va_idx]
 
-        model = CatBoostClassifier(**CATBOOST_PARAMS)
-        model.fit(
-            X_tr,
-            y_tr,
-            eval_set=(X_va, y_va),
-            cat_features=cat_features_present,
-            use_best_model=True,
-        )
+        # 2-seed ensemble (Plan-2b): average preds over seeds to cut variance,
+        # per the documented 0.95259 recipe.
+        va_preds_seeds, test_preds_seeds, imps_seeds, best_iters_seeds = [], [], [], []
+        for seed in SEEDS:
+            model = CatBoostClassifier(**CATBOOST_PARAMS, random_seed=seed)
+            model.fit(
+                X_tr,
+                y_tr,
+                eval_set=(X_va, y_va),
+                cat_features=cat_features_present,
+                use_best_model=True,
+            )
+            va_preds_seeds.append(model.predict_proba(X_va)[:, 1])
+            test_preds_seeds.append(model.predict_proba(X_test)[:, 1])
+            imps_seeds.append(model.get_feature_importance())
+            best_iters_seeds.append(int(model.get_best_iteration()))
 
-        va_pred = model.predict_proba(X_va)[:, 1]
-        test_pred_fold = model.predict_proba(X_test)[:, 1]
-        feat_imp = model.get_feature_importance()
+        va_pred = np.mean(va_preds_seeds, axis=0)
+        test_pred_fold = np.mean(test_preds_seeds, axis=0)
+        feat_imp = np.mean(imps_seeds, axis=0)
         oof[va_idx] = va_pred
         test_preds_per_fold[fold_idx] = test_pred_fold
 
         years_va = train.iloc[va_idx]["Year"].astype(int).values
         per_year_fold = per_year_auc(y_va, va_pred, years_va)
-        best_iter = int(model.get_best_iteration())
+        best_iter = int(np.mean(best_iters_seeds))
         elapsed = time.time() - t0
         meta = {
             "fold": fold_idx,
@@ -650,9 +669,9 @@ def main() -> None:
             "per_year": [{"year": yr, **st} for yr, st in sorted(per_year_fold.items())],
         }
         # CHECKPOINT IMMEDIATELY — survives a clean exit, never batched to the end.
-        # NB: we do NOT save the .cbm model. At 16000 iters the CatBoost CTR tables
-        # (18 high-cardinality cats + combinations) are multi-GB and filled the 20GB
-        # disk by fold 2 (v2 fail). The .npz preds are all resume / submit-03 need.
+        # NB: we do NOT save the .cbm model. CatBoost CTR tables (18 high-cardinality
+        # cats + combinations) are multi-GB and filled the 20GB disk by fold 2 in the
+        # 16k-iter run. The .npz preds are all resume / the ensemble plan need.
         save_fold_ckpt(fold_idx, va_idx, va_pred, test_pred_fold, feat_imp, meta)
         free_gb = shutil.disk_usage(OUTPUT).free / 1e9
         print(f"    disk free in {OUTPUT}: {free_gb:.2f} GB")

@@ -1,4 +1,11 @@
-# Plan submit-03 — Hybrid CatBoost + TabPFN stacked (Strategy 3)
+> **⚠️ FROZEN (2026-05-29).** This is the **Plan-Ensemble** (diversity/stacking) strategy.
+> It is NOT "submit-03". Submit numbering is sequential and decoupled from plan names:
+> submit-03 implements **Plan-2b** (disciplined repair), not this plan.
+> **Frozen until a single-model base beats submit-01 (LB 0.94457), verified on LB.**
+> submit-02 (Plan-2) regressed to 0.94296 — you do not ensemble a base below baseline.
+> Renamed from `2026-05-28-submit-03-plan.md`.
+
+# Plan-Ensemble — Hybrid CatBoost + diversity (RealMLP/TabPFN) stacked [FROZEN]
 
 > **Date** : 2026-05-28
 > **Status** : OUTLINE — **BLOQUÉ implémentation jusqu'à BILAN submit-02 rempli ci-dessous**
