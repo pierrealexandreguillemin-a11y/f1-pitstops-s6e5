@@ -63,7 +63,10 @@ def _batched_proba(model, X: np.ndarray) -> np.ndarray:  # noqa: N803 (sklearn X
 
 def main() -> None:
     t0 = time.time()
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "tabpfn"])
+    # Pin TabPFN-v2 (Apache-2.0 weights, auto-download from HF Prior-Labs/TabPFN-v2-clf,
+    # NO license-token gate). The current package defaults to TabPFN-3 whose weights are
+    # license-gated and fail in non-interactive batch (TabPFNLicenseError). v2 avoids it.
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "tabpfn==2.0.9"])
     import torch
     from tabpfn import TabPFNClassifier
 
@@ -116,12 +119,7 @@ def main() -> None:
         else:
             ctx = tr_idx
 
-        model = TabPFNClassifier(
-            ignore_pretraining_limits=True,
-            device="cuda",
-            fit_mode="fit_with_cache",
-            random_state=SEED,
-        )
+        model = TabPFNClassifier(ignore_pretraining_limits=True, device="cuda", random_state=SEED)
         model.fit(X[ctx], y[ctx])
 
         oof[va_idx] = _batched_proba(model, X[va_idx])
