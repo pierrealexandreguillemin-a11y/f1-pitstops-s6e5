@@ -16,6 +16,7 @@ data/external/*
 # Submissions (track via README table, not CSV in git)
 submissions/*.csv
 submissions/*.parquet
+submissions/*.json
 !submissions/.gitkeep
 
 # Python

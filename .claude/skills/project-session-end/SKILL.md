@@ -9,7 +9,7 @@ description: f1-pitstops-s6e5 STANDING PROCEDURE T1-T5 — 18-section autoportab
 
 Implements `f1-pitstops-s6e5` `CLAUDE.md` STANDING PROCEDURE NON-NÉGOCIABLE post-task memory + fatigue self-assessment. **18-section autoportable resume memo** for fresh-Claude reprise sans context conversationnel.
 
-> Stack-aware : Python 3.13 + .venv dédié + Kaggle Playground tabular CSV submission, bench gates = paired CV-fold + LB delta vs baseline.
+> Stack-aware : Python 3.13 + .venv dédié + Kaggle Playground tabular CSV submission + Kaggle GPU/CPU kernels (training off-laptop). Ship gate = **public LB delta vs current best** (CV/OOF untrustworthy here — measured mirage).
 
 ## When to invoke (T1-T5 triggers obligatoire)
 
@@ -18,7 +18,7 @@ Implements `f1-pitstops-s6e5` `CLAUDE.md` STANDING PROCEDURE NON-NÉGOCIABLE pos
 | **T1 post-task-long** | tâche > 30 min wall OU > 5 tool-calls OU 1+ commit shippé |
 | **T2 fatigue ALERT** | ≥ 1 indicateur ALERT (per `feedback_post_task_procedure_and_fatigue.md`) |
 | **T3 fatigue STOP** | ≥ 1 indicateur STOP |
-| **T4 milestone naturelle** | notebook NN complété end-to-end OU submission Kaggle shippée OU décision archi (e.g. survival vs sequence en notebook 04) |
+| **T4 milestone naturelle** | kernel/script `run_NN_*` complété + submit Kaggle shippé (LB connu) OU décision archi/stratégique (e.g. RealMLP>CatBoost LB-reversal, diversity-family pivot) |
 | **T5 user-explicit** | "memo update" / "doc de reprise" / "session-end" / "STOP" / "pause" / "fin de session" |
 
 Self-trigger when planning a commit body — verify session-end memo updated BEFORE final user-facing message.
@@ -60,11 +60,11 @@ ls C:/Users/pierr/.claude/projects/C--Dev-f1-pitstops-s6e5/memory/MEMORY.md
 ### Step 4 — Determine task tag
 
 Concise kebab-case identifier for filename. Examples for f1-pitstops-s6e5 :
-- `notebook-02-baseline-shipped`
-- `notebook-03-domain-fe-cv-X.XXX`
-- `submit-05-moe-bonus`
+- `submitNN-<approach>-lb-X.XXXXX`
+- `plan2c-drop-highcard-crosses`
+- `realmlp-lb-reversal`
+- `diversity-blend-tabpfn`
 - `phase-0-setup-complete`
-- `coxph-vs-deepsurv-decision`
 
 ### Step 5 — Generate filename
 
@@ -79,16 +79,16 @@ C:/Users/pierr/.claude/projects/C--Dev-f1-pitstops-s6e5/memory/project_session_e
 | 1 | Resume protocol bash | literal copy-paste sanity checks (git + test runner + lint + paths runtime) |
 | 2 | Session totals + HEAD | git state + tests + commits-ahead + push state |
 | 3 | Deliverables (commits + files + LOC + bench/artefacts) | `git log` + `git diff --stat` + submissions CSV créés + OOF preds persistées |
-| 4 | Hard signals fresh-Claude must respect | compose from CLAUDE.md projet + CLAUDE.md racine + feedbacks slow-changing — isolation from orbit-wars ; no LB grinding ; time-box 1.5x max per step ; seed fix everywhere ; group-aware CV mandatory ; calibration plot per submit ; anti-AI-slop |
+| 4 | Hard signals fresh-Claude must respect | compose from CLAUDE.md projet + CLAUDE.md racine + feedbacks slow-changing — isolation from orbit-wars ; no LB grinding ; **OOF/CV UNTRUSTWORTHY here → LB is the only metric** (measured: CatBoost CTR mirage, D1/D2) ; seed=42 everywhere ; StratifiedKFold(42) shared across models for OOF-aligned blends ; **no local heavy training (laptop OOM) → all training on Kaggle** ; anti-AI-slop |
 | 5 | Next decision options A/B/C/D | + effort/coût estimé + ship-gate empirique + rollback path + recommendation |
 | 6 | Tests/lint/quality status | pytest + ruff + pre-commit (auto on commit) + lock-sync (pre-push) |
-| 7 | Runtime state (= source-of-truth ground-truth) | VALEURS ABSOLUES, pas de "voir tool externe". Kaggle submissions : sub_id + score + tags + COMPLETE/ERROR/PENDING ; local : last notebook executed + CV scores per fold + calibration Brier score |
+| 7 | Runtime state (= source-of-truth ground-truth) | VALEURS ABSOLUES, pas de "voir tool externe". Kaggle submissions : sub_id + **public LB** + tags + COMPLETE/ERROR/PENDING ; **in-flight Kaggle kernels : slug + KernelWorkerStatus** (RUNNING/COMPLETE/ERROR) + how to pull output ; last script/kernel run + OOF AUC per fold (note: OOF ≠ LB here) |
 | 8 | Mapping commit hash ↔ submission_id (anti faux-ami) | Pour CHAQUE commit récent cité comme "ship/baseline/feat" : Submitted to Kaggle? OUI/NON + sub_id si OUI. Si "Submitted=NON" pour commit cité comme ship → `⚠ commit-hash ≠ submission. Local-ship-only.` |
-| 9 | Contrat ship explicit (anti-fuite-en-avant) | submit si CV improves baseline by >= 0.5pp ET paired fold-by-fold majority positive ET calibration not worse than baseline |
-| 10 | Plans status DRIFT-check | docs/superpowers/specs/2026-05-26-f1-pitstops-tuto-design.md + docs/superpowers/plans/2026-05-26-f1-pitstops-tuto-plan.md. Checklist : status banner cohérent vs git log + MEMORY.md + spec block ; logbook append-only ; composite exit gate status connu |
+| 9 | Contrat ship explicit (anti-fuite-en-avant) | **CV/OOF gate SUSPENDED — proven untrustworthy (D1 mirage).** Submit to competition ONLY if (a) candidate is hypothesis-backed to beat the current best **public LB**, AND (b) explicit user OK (or standing autonomous mandate). LB is the verdict. No LB grinding (principled probes only, no fine weight sweeps). |
+| 10 | Plans status DRIFT-check | **active: `docs/plans/DECISION-LOG.md` (decision chain + completion conditions) + latest dated `docs/plans/YYYY-MM-DD-*.md` + README tracking table.** SUPERSEDED (archive only): `docs/superpowers/specs|plans/2026-05-26-*`. Checklist : DECISION-LOG frontier vs git log + MEMORY.md entry 0 coherent ; README rows = all submits with LB. |
 | 11 | Anti-pattern counter unifié | pointer `feedback_diagnostic_first_doctrine.md` (au démarrage : aucun). NE PAS réécrire le compteur — citer current count + dernier ajout |
 | 12 | Dead code post-pivot tracking | tout symbole landed dans une session où décision archi ultérieure a rendu le call-site caduc — listé avec décision (wire / docstring deprecation / revert) |
-| 13 | Notebook 00-05 status (DONE/IN-PROGRESS/PENDING) (anti-prematuré-N+1) | Si Notebook N status=OPEN sans submit Kaggle shipped, ouvrir N+1 = anti-pattern doctrinal |
+| 13 | Kernel/script + submit status (DONE/IN-FLIGHT/PENDING) (anti-prematuré-N+1) | **Notebooks dropped (2026-05-27 rescope) — project = pure .py scripts + Kaggle kernels.** List each `kernels/run_NN_*` / `scripts/run_NN_*` + its submit-NN status + LB. In-flight kernels: slug + status + resume action. Anti-pattern: opening submitN+1 while submitN's kernel is still RUNNING/unverified. |
 | 14 | Read order critical pour fresh-Claude | 10-20 docs ordonnés ("Si veut X → lire Y") : CLAUDE.md projet first, racine, memory feedbacks, plans actifs, code substrate à modifier next |
 | 15 | Critique restante (TODO future) | unfinished items + estimated effort + push origin pending USER OK + plans synthèse REPORTÉ |
 | 16 | OPEN QUESTION fresh-Claude | Q1 + Q2 + Q3 anti-décision-implicite (question 1-2 phrases + 2-3 hypothèses + recommandation par défaut + condition switch) |
@@ -101,7 +101,7 @@ Per template "Checklist autoportée" :
 
 1. **Sanity bash literal** : un fresh-Claude peut copier-coller §1 sans interprétation (commandes literally exécutables + paths absolus).
 2. **State complete** : §2-§3 capture HEAD + commits + tests + runtime état sans ambiguïté.
-3. **Hard signals enumerated** : §4 cite TOUS rules + invariants critiques (isolation orbit-wars, no LB grinding, time-box, seed=42, GroupKFold, calibration, anti-AI-slop).
+3. **Hard signals enumerated** : §4 cite TOUS rules + invariants critiques (isolation orbit-wars, no LB grinding, OOF-untrustworthy/LB-only, seed=42, StratifiedKFold(42) shared, no-local-training/Kaggle-only, anti-AI-slop).
 4. **Next options actionnable** : §5 propose A/B/C/D avec coût + recommandation explicite.
 5. **Read order ordered** : §14 priorise lecture pour fresh-Claude (canonical source first).
 6. **OPEN QUESTION explicit** : §16 force user decision, NOT décision implicite Claude.
