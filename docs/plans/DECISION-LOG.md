@@ -117,12 +117,39 @@ single AND beats every blend we built. No principled lever left within the time/
 decorrelated near-tied candidate = private-LB insurance). Select on Kaggle UI (no CLI);
 Kaggle's top-2-public default already = these two.
 
+### D10 — Improve RealMLP-v1 ITSELF (blends exhausted) ⏳ IN FLIGHT (option 1)
+Context: public LB is a density wall — top 0.95497, us 0.95407 (#464/2904), 229 teams in
+[0.9515, 0.95407]. Blends all failed; the only path up is a stronger RealMLP standalone.
+Three levers evaluated (RealMLP-v1 already has: `n_ens=20` internal ensemble, yekenot FE
+[arithmetic interactions, count-enc, KBins, TargetEncoder on combos Race_Compound/Race_Year],
+`n_epochs` tested v1=5/v2=16=tie, calibration N/A since AUC is rank-based):
+
+- **Lever 1 — add (Y,R,D) single-column target-mean features (CHOSEN, building).** RealMLP
+  lacks explicit out-of-fold target means by Driver/Race/Year/Compound (it only freq-encodes
+  them + target-encodes 2 combos). Plan-2c's measured ablation: single-column aggregates
+  GENERALIZE (the mirage was the 5 high-card CROSSES, not these). = NEW information for the
+  NN, not just variance reduction. Leak-free via sklearn `TargetEncoder(cv=5)` (same tool the
+  kernel already uses). Highest upside. Risk: OOF won't guide → LB probe decides; may not
+  transfer like everything else at this plateau. Kernel `run_12_realmlp_agg`, ~40min T4.
+- **Lever 2 — seed-ensemble the full run (3-5 seeds, average test preds).** Adds fold-split +
+  init diversity beyond the internal n_ens=20. Reliable but small (+0.0001-0.0003), zero
+  CV-overfit risk. Not chosen first (smaller upside than lever 1).
+- **Lever 3 — RealMLP_HPO (per-dataset tuning) — REJECTED.** Optimises on the UNRELIABLE OOF
+  → re-creates the submit-02 mirage trap (CV-overfit config that regresses on LB). Worst
+  choice at J-0.
+
+- **Completion condition (PENDING):** run_12 COMPLETE → probe alone on LB → beats 0.95407?
+  If yes → new best, becomes final slot A. If no → lever 1 dead, fall back to lever 2 or stop.
+- Ship gate unchanged: submit only if hypothesis-backed to beat 0.95407 (LB the verdict).
+
 ---
 
 ## Frontier pointer
-**Now:** DONE. All diversity families exhausted (D6 CatBoost, D7/D8 TabPFN, D9 TabM). Best =
-RealMLP-v1 alone **LB 0.95407**. Finals LOCKED A=RealMLP-v1 / B=blend-09. Awaiting only the
-manual Kaggle final-selection (UI) before the 2026-05-31 23:59 UTC deadline.
+**Now:** D10 lever-1 IN FLIGHT — RealMLP-v1 + (Y,R,D) target-mean FE (`run_12_realmlp_agg`,
+`pguillemin/f1-s6e5-realmlp-agg`). All blends exhausted (D6/D7/D8/D9). Best = RealMLP-v1 alone
+**LB 0.95407** (#464/2904, density wall). On completion: probe → if > 0.95407 it becomes final
+slot A, else fall back. Finals currently LOCKED A=RealMLP-v1 / B=blend-09. Deadline 2026-05-31
+23:59 UTC.
 
 ## Superseded / frozen plan docs (for reference, not active)
 - `docs/plans/2026-05-28-submit-02-plan.md` — Plan-2 (D1), shipped, regressed.
