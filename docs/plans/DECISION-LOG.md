@@ -97,25 +97,32 @@ Legend: ✅ done/proven · ⏳ in-flight · ❌ dead end (kept as negative knowl
   (emoji in title truncates the download via charmap). (3) Per-bag checkpoint write so a
   container restart/timeout still yields coherent outputs.
 
-### D9 — TabM: the second STRONG NN ⏳ IN FLIGHT
-- **Decision:** add TabM (PyTabKit `TabM_D_Classifier`, ICLR 2025 — parameter-efficient
-  MLP-ensemble, ≥ RealMLP on TabArena). Same submit-06 pipeline, only the model swapped.
-- **Why:** the D7 negative result + the rule from D8 — need a partner that is BOTH strong
-  (~0.954) AND a different architecture. TabM fits; a RealMLP+TabM blend is the classic
-  diversity gain TabPFN could not give. TabM-alone may also be a new best.
-- **Completion condition (PENDING):** TabM kernel COMPLETE → probe alone on LB →
-  corr(RealMLP,TabM) → isotonic blend (LB-informed weight) → does it beat 0.95407?
-- **Will trigger:** if TabM or its blend > 0.95407 → it becomes final slot A. Else finals
-  stay A=RealMLP-v1 / B=blend-09.
-- Artifacts: `kernels/run_10_tabm`, commit `2d14f48`, plan
-  `docs/plans/2026-05-30-realmlp-diversity-status-and-plan.md`.
+### D9 — TabM: the second STRONG NN ✅ RESOLVED (negative)
+- **Decision:** add TabM (PyTabKit `TabM_D_Classifier`, ICLR 2025). Same submit-06 pipeline.
+- **Result (measured):** TabM OOF **0.95211** — genuinely STRONG (0.002 below RealMLP, the
+  opposite of weak TabPFN). BUT corr(RealMLP,TabM) = **0.989** (both MLPs on the same FE →
+  near-identical). Blend-11 (w_tm=0.25) OOF 0.95429, LB **0.95398** < RealMLP-alone 0.95407.
+  OOF +0.011pp did NOT transfer — same failure mode as TabPFN.
+- **Config miss (mine):** no early-stopping / bounded n_epochs on TabM (left `_D` defaults)
+  → trained ~110min past the per-fold optimum (best epoch ~2). Quality OK (best-epoch
+  checkpoint kept) but wasteful GPU. Next time: set `n_epochs` + early stopping like RealMLP.
+- **Lesson banked:** a diversity partner must be BOTH strong AND decorrelated. We have now
+  exhausted all three families — CatBoost/GBDT (ρ.958), TabPFN/foundation (ρ.919 but weak),
+  TabM/MLP (ρ.989). **None beats RealMLP-v1 alone; every blend's OOF gain fails to transfer.**
+
+### CONCLUSION — RealMLP-v1 alone is the ceiling ✅
+The public LB plateaus at **~0.954**. RealMLP-v1 alone (**LB 0.95407**) is the best
+single AND beats every blend we built. No principled lever left within the time/compute.
+**Finals LOCKED:** A = RealMLP-v1 (0.95407), B = blend-09 RealMLP+TabPFN (0.95399, the most
+decorrelated near-tied candidate = private-LB insurance). Select on Kaggle UI (no CLI);
+Kaggle's top-2-public default already = these two.
 
 ---
 
 ## Frontier pointer
-**Now:** waiting on D9 TabM kernel (`pguillemin/f1-s6e5-tabm`). On completion: probe alone →
-corr vs RealMLP → isotonic blend → revise finals if > 0.95407. Best so far = RealMLP-v1
-alone **LB 0.95407**. Finals provisionally A=RealMLP-v1 (0.95407) / B=blend-09 (0.95399).
+**Now:** DONE. All diversity families exhausted (D6 CatBoost, D7/D8 TabPFN, D9 TabM). Best =
+RealMLP-v1 alone **LB 0.95407**. Finals LOCKED A=RealMLP-v1 / B=blend-09. Awaiting only the
+manual Kaggle final-selection (UI) before the 2026-05-31 23:59 UTC deadline.
 
 ## Superseded / frozen plan docs (for reference, not active)
 - `docs/plans/2026-05-28-submit-02-plan.md` — Plan-2 (D1), shipped, regressed.

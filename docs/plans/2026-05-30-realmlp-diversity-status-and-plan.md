@@ -16,8 +16,9 @@
 | 06v2 | RealMLP-v2 (ls_eps=0, n_epochs=16) | 0.95396 | 0.95398 | ≈ v1, corr 0.999 — config doesn't decorrelate |
 | 08 | TabPFN-v2 (10k ctx + bagging×4) ALONE | 0.93381 | 0.93318 | honest OOF but WEAK (−2.1pp), corr 0.919 |
 | 09 | blend RealMLP-v1 + TabPFN w_tp=0.10 | 0.95433 | 0.95399 | OOF gain did NOT transfer (−0.008pp vs RealMLP) |
-| 10 | **TabM** (ICLR 2025, 2nd strong NN) | IN FLIGHT | IN FLIGHT | the real diversity lever (strong + different arch) |
-| **06** | **RealMLP-v1 ALONE** | 0.95409 | **0.95407** | **BEST so far** |
+| 10 | TabM (ICLR 2025, 2nd strong NN) ALONE | 0.95211 | not submitted | strong (0.952) but corr 0.989 with RealMLP |
+| 11 | blend RealMLP-v1 + TabM w_tm=0.25 | 0.95429 | 0.95398 | OOF gain did NOT transfer (−0.009pp) |
+| **06** | **RealMLP-v1 ALONE** | 0.95409 | **0.95407** | **BEST — the ceiling** |
 
 ### TabPFN verdict (submit-08/09, measured) — line CLOSED
 TabPFN's OOF is HONEST here (OOF 0.93381 ≈ LB 0.93318 — unlike CatBoost's CTR mirage),
@@ -51,26 +52,22 @@ Blends are MONOTONE in CatBoost weight: w(CatBoost)=1.0→0.95083, 0.73→0.9526
 probes (principled, ≤ a few) to decide. The winning blend is RealMLP + TabPFN (the two
 strong non-GBDT families), CatBoost weight ~0.
 
-## In-flight kernels (Kaggle T4, monitor armed)
+## All diversity families EXHAUSTED — line closed
 
-- **TabM (submit-10)** — slug `pguillemin/f1-s6e5-tabm`. Second STRONG NN of a different
-  architecture (parameter-efficient MLP-ensemble, ICLR 2025). Same pipeline as submit-06
-  (yekenot FE, folds, Aadi), only model swapped to `TabM_D_Classifier` (pytabkit defaults).
-  `kernels/run_10_tabm`. Pushed with `--accelerator NvidiaTeslaT4`.
+TabM (submit-10/11) is DONE and negative — see standings + the TabM entry in DECISION-LOG
+D9. TabM is strong (OOF 0.952) but corr 0.989 with RealMLP (both MLPs / same FE) → blend-11
+LB 0.95398 < RealMLP-alone 0.95407. Third family to fail after CatBoost (ρ.958, dragged
+down) and TabPFN (ρ.919 but too weak). **No principled lever remains.**
 
-(DONE this session: RealMLP-v2 → 0.95398, TabPFN-v2 → 0.93318, blend 09 → 0.95399. See
-standings + TabPFN verdict above.)
+## Final decision (LOCKED)
 
-## Forward plan (execute on TabM completion)
-
-1. **TabM alone → probe LB.** Beats 0.95407? If yes, new best + final candidate.
-2. **corr(RealMLP-v1, TabM)** on aligned OOF/test. Lower corr + comparable strength =
-   blend likely to lift (the case TabPFN could not provide).
-3. **Blend RealMLP-v1 + TabM** (isotonic-calibrate each, LB-informed weight — NOT OOF
-   weight, proven misleading). Probe 1 (maybe 2) principled variant(s). Does it beat 0.95407?
-4. **Finalize the 2 finals.** Currently A=RealMLP-v1 (0.95407), B=blend-09 (0.95399).
-   If TabM or the RealMLP+TabM blend beats 0.95407 → it becomes slot A, and the best
-   decorrelated runner-up becomes slot B. Never two near-identical.
+- **A = RealMLP-v1 ALONE (LB 0.95407)** — best single, the measured ceiling.
+- **B = blend-09 RealMLP+TabPFN (LB 0.95399)** — the most decorrelated near-tied candidate
+  (TabPFN ρ.919) → private-LB insurance. (blend-11 TabM ρ.989 = a clone of RealMLP, rejected
+  as B.)
+- Kaggle has no CLI for final selection → pick on the UI (Submissions → "Use for Final
+  Score"). Kaggle's default top-2-public already equals these two, so doing nothing also works.
+- **Done. Awaiting only the manual final-selection before 2026-05-31 23:59 UTC.**
 
 ## Tooling / artifacts
 
