@@ -202,7 +202,7 @@ def main() -> None:
         "verbosity": 1,
         "val_metric_name": "1-auc_ovr",
         "n_ens": 20,
-        "n_epochs": 5,
+        "n_epochs": 16,
         "batch_size": 256,
         "use_early_stopping": False,
         "early_stopping_additive_patience": 10,
@@ -223,7 +223,9 @@ def main() -> None:
         "plr_act_name": "gelu",
         "plr_lr_factor": 0.1151,
         "plr_sigma": 2.33,
-        "ls_eps": 0.01,
+        # v2: label smoothing DISABLED — PyTabKit docs state "label smoothing harms
+        # RealMLP for AUC" (our metric). yekenot used ls_eps=0.01 (suboptimal here).
+        "ls_eps": 0.0,
         "ls_eps_sched": "sqrt_cos",
         "add_front_scale": False,
         "bias_init_mode": "neg-uniform-dynamic-2",
