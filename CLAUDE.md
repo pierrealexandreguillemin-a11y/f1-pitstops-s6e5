@@ -32,9 +32,11 @@ Tout via `.venv/Scripts/python.exe -m <module>` ou `.venv/Scripts/<exe>.exe` dir
 - **Isolation orbit-wars** : zéro partage venv ou code.
 - **Submissions = CSV de probabilités** `[0,1]`, jamais classifications {0,1}.
 - **Seed=42 partout** : np, catboost, random.
-- **GroupKFold(Race+Year)** obligatoire — pas de naive KFold.
-- **AUC tracked** par fold + OOF aggregate.
-- **No LB grinding** : submit quand CV improvement > 0.5pp ET paired fold-by-fold positive (4 jours, 40 submits dispos, pas besoin de spammer).
+- **StratifiedKFold(5, shuffle, seed=42)** partagé entre TOUS les modèles → OOF aligné par `id` (requis pour les blends OOF-leak-free). GroupKFold(Race+Year) = ancre baseline (submit-01) uniquement, pas la CV de prod.
+- **AUC tracked** par fold + OOF aggregate — MAIS l'**OOF/CV est NON FIABLE ici** (mirage CTR catégoriel CatBoost mesuré : OOF 0.979 / LB 0.943 ; puis renversement RealMLP>CatBoost en LB alors que l'OOF disait l'inverse). **Le LB public est la SEULE métrique de décision** (sélection modèle/poids/blend).
+- **Ship gate** : submit si candidat **hypothèse-fondé à battre le meilleur LB courant** + OK user explicite (ou mandat autonome). **No LB grinding** : probes principielles (chacune répond à une question), pas de sweep de poids fin.
+- **Données externes Aadi** : GARDER (ablation mesurée +0.078pp malgré 25% de labels altérés, discussion 696380).
+- **Entraînement modèle = Kaggle kernels uniquement** (laptop 15.4 GB RAM → OOM si training local). En local : blends sur vecteurs de probas + submissions seulement.
 - **Anti-AI-slop** : valeurs mesurées, pas "TBD" ni "expected".
 - **No push origin sans demande explicite**.
 

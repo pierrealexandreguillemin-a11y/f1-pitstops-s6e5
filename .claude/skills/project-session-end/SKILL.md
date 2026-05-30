@@ -44,9 +44,10 @@ git status --short                                                              
 git rev-list --count origin/master..HEAD 2>/dev/null || echo "no remote"           # commits ahead
 # N/A — Python pure, no build step
 .venv/Scripts/python.exe -m pytest -q tests/ 2>&1 | tail -3
-.venv/Scripts/python.exe -m ruff check . 2>&1 | tail -3
+.venv/Scripts/ruff.exe check . 2>&1 | tail -3
 ls C:/Users/pierr/.claude/projects/C--Dev-f1-pitstops-s6e5/memory/MEMORY.md
-.venv/Scripts/python.exe -m kaggle competitions submissions playground-series-s6e5 -v 2>&1 | head -5
+.venv/Scripts/kaggle.exe competitions submissions playground-series-s6e5 2>&1 | head -8
+# in-flight Kaggle kernels (if memo §7 lists any): .venv/Scripts/kaggle.exe kernels status <slug>
 ```
 
 ### Step 3 — Determine session segment scope
@@ -54,7 +55,7 @@ ls C:/Users/pierr/.claude/projects/C--Dev-f1-pitstops-s6e5/memory/MEMORY.md
 - **Commits this segment** : count commits since session start (cumul user actions).
 - **Files modified** : `git diff --stat origin/master..HEAD` (or `HEAD~N..HEAD` if no remote) to enumerate scope.
 - **Tests delta** : compare current PASS count vs baseline at session start.
-- **Bench/deploy artefacts created** : new files in `submissions/` + `data/processed/` cette session (e.g. `submissions/02_catboost_default.csv`, OOF `.npy`, cv `.csv`).
+- **Bench/deploy artefacts created** : new files in `submissions/` + kernel outputs pulled cette session (e.g. `submissions/NN_<approach>.csv`, `oof_predictions.parquet` + `test_predictions.parquet` pulled from `kernels/run_NN_*`).
 - **User-corrective-loops** : count instances of "user-flag → claude-fix" pattern (= candidate anti-patterns).
 
 ### Step 4 — Determine task tag
@@ -79,7 +80,7 @@ C:/Users/pierr/.claude/projects/C--Dev-f1-pitstops-s6e5/memory/project_session_e
 | 1 | Resume protocol bash | literal copy-paste sanity checks (git + test runner + lint + paths runtime) |
 | 2 | Session totals + HEAD | git state + tests + commits-ahead + push state |
 | 3 | Deliverables (commits + files + LOC + bench/artefacts) | `git log` + `git diff --stat` + submissions CSV créés + OOF preds persistées |
-| 4 | Hard signals fresh-Claude must respect | compose from CLAUDE.md projet + CLAUDE.md racine + feedbacks slow-changing — isolation from orbit-wars ; no LB grinding ; **OOF/CV UNTRUSTWORTHY here → LB is the only metric** (measured: CatBoost CTR mirage, D1/D2) ; seed=42 everywhere ; StratifiedKFold(42) shared across models for OOF-aligned blends ; **no local heavy training (laptop OOM) → all training on Kaggle** ; anti-AI-slop |
+| 4 | Hard signals fresh-Claude must respect | **SOURCE (don't duplicate) from `CLAUDE.md` projet `## Hard signals` = live source-of-truth + `C:/Dev/CLAUDE.md` racine + feedback memories.** Copy the CURRENT CLAUDE.md list into memo §4 (do not hardcode evolving signals in this skill → drift). At time of writing those include: OOF/CV-untrustworthy→LB-only, StratifiedKFold(42)-shared, keep-Aadi, Kaggle-only-training, no-LB-grinding, seed=42, isolation, anti-AI-slop, no-push. |
 | 5 | Next decision options A/B/C/D | + effort/coût estimé + ship-gate empirique + rollback path + recommendation |
 | 6 | Tests/lint/quality status | pytest + ruff + pre-commit (auto on commit) + lock-sync (pre-push) |
 | 7 | Runtime state (= source-of-truth ground-truth) | VALEURS ABSOLUES, pas de "voir tool externe". Kaggle submissions : sub_id + **public LB** + tags + COMPLETE/ERROR/PENDING ; **in-flight Kaggle kernels : slug + KernelWorkerStatus** (RUNNING/COMPLETE/ERROR) + how to pull output ; last script/kernel run + OOF AUC per fold (note: OOF ≠ LB here) |
@@ -170,7 +171,7 @@ Reprise next session : copy-paste §18 IDE-pasteable du memo pour fresh-Claude. 
 - `C:/Users/pierr/.claude/projects/C--Dev-f1-pitstops-s6e5/memory/feedback_diagnostic_first_doctrine.md` (= anti-pattern counter source-of-truth).
 - `C:/Users/pierr/.claude/projects/C--Dev-f1-pitstops-s6e5/memory/MEMORY.md` (= index target update entry 0).
 - `C:/Users/pierr/.claude/projects/C--Dev-f1-pitstops-s6e5/memory/project_session_history_archive.md` (= chronological archive target).
-- Project-specific cross-refs : tracking table in `README.md` (created Task 16) ; Kaggle competition page <https://www.kaggle.com/competitions/playground-series-s6e5> ; design spec `docs/superpowers/specs/2026-05-26-f1-pitstops-tuto-design.md` ; plan `docs/superpowers/plans/2026-05-26-f1-pitstops-tuto-plan.md`.
+- Project-specific cross-refs : tracking table in `README.md` ; **decision chain `docs/plans/DECISION-LOG.md` + latest dated `docs/plans/YYYY-MM-DD-*.md`** (= active plan source) ; Kaggle competition page <https://www.kaggle.com/competitions/playground-series-s6e5>. SUPERSEDED (archive only): `docs/superpowers/specs|plans/2026-05-26-f1-pitstops-tuto-*.md` (over-scoped original, dropped at rescope).
 - Source canonique de la doctrine : `C:/Dev/feedback_session_end_template_GENERIC.md`.
 - Source canonique du skill template : `C:/Dev/skills-templates/project-session-end/SKILL.md`.
 - Skill orbit-wars de référence (premier projeté) : `C:/Dev/orbit-wars/.claude/skills/project-session-end/SKILL.md`.
