@@ -6,13 +6,18 @@ transformer) — a THIRD architecture, and it uses RAW features (no FE), so it i
 maximally decorrelated from CatBoost (heavy FE) and RealMLP (its own FE). A 3-way
 isotonic blend can add further LB.
 
-Recipe (standalone open-source tabpfn = TabPFN-3 weights, runs on Kaggle GPU, no API
-token), per discussion 699096 (competitor CV: classifier default 0.95121):
+Recipe (standalone open-source tabpfn = TabPFN-v2 weights, runs on Kaggle GPU, no API
+token), per discussion 699096 (competitor CV: classifier default 0.95121) AND the
+documented TabPFN-v2 large-data method (arxiv 2502.17361): the model's DESIGN LIMIT is
+10k support rows; for >10k the canonical approach is "subsample to 10k support +
+bagging ensemble" (like a random forest), NOT feeding a huge raw context.
     - RAW features (categoricals factorized to int codes, shared train/test mapping).
     - StratifiedKFold(5, shuffle, seed=42) — SAME folds as Plan-2c/RealMLP -> OOF aligns.
-    - TabPFNClassifier(ignore_pretraining_limits=True, device='cuda', fit_mode='fit_with_cache').
-    - Context capped at 100k stratified rows/fold for T4 memory+time safety (full 351k
-      is feasible per competitor but risks OOM/timeout; 100k keeps it competent + reliable).
+    - TabPFNClassifier(device='cuda', n_estimators=4) — WITHIN the 10k design limit, so
+      no ignore_pretraining_limits (the prior 100k run exceeded the limit 10x -> the model
+      warned "degraded performance" and ran ~10x slower; killed at 8650s. Fixed here.)
+    - CONTEXT_CAP=10_000 stratified rows per bag; N_BAGS=4 independent stratified
+      subsamples per fold, predictions averaged -> ~40k effective data, design-limit-safe.
     - Batched predict (20k) to bound attention memory.
 
 Outputs (/kaggle/working/): oof_predictions.parquet (id,oof_pred,y,fold,Year),
@@ -40,7 +45,8 @@ INPUT_ROOT = Path("/kaggle/input")
 OUTPUT = Path("/kaggle/working")
 SEED = 42
 N_SPLITS = 5
-CONTEXT_CAP = 100_000
+CONTEXT_CAP = 10_000  # TabPFN-v2 design limit (arxiv 2502.17361). Do NOT exceed.
+N_BAGS = 4  # independent stratified 10k subsamples per fold, averaged (bagging ensemble)
 PREDICT_BATCH = 20_000
 TARGET = "PitNextLap"
 ID = "id"
@@ -104,30 +110,41 @@ def main() -> None:
     fold_arr = np.full(len(X), -1, dtype=np.int8)
     fold_aucs = []
 
+    def _stratified_ctx(tr_idx: np.ndarray) -> np.ndarray:
+        """One stratified subsample of <= CONTEXT_CAP rows (rng advances each call -> bags differ)."""
+        if len(tr_idx) <= CONTEXT_CAP:
+            return tr_idx
+        pos = tr_idx[y[tr_idx] == 1]
+        neg = tr_idx[y[tr_idx] == 0]
+        frac = CONTEXT_CAP / len(tr_idx)
+        n_pos = int(round(len(pos) * frac))
+        n_neg = CONTEXT_CAP - n_pos
+        ctx = np.concatenate(
+            [rng.choice(pos, n_pos, replace=False), rng.choice(neg, n_neg, replace=False)]
+        )
+        rng.shuffle(ctx)
+        return ctx
+
     for fold, (tr_idx, va_idx) in enumerate(skf.split(X, y)):
-        # Stratified context cap for T4 memory/time safety.
-        if len(tr_idx) > CONTEXT_CAP:
-            pos = tr_idx[y[tr_idx] == 1]
-            neg = tr_idx[y[tr_idx] == 0]
-            frac = CONTEXT_CAP / len(tr_idx)
-            n_pos = int(round(len(pos) * frac))
-            n_neg = CONTEXT_CAP - n_pos
-            ctx = np.concatenate(
-                [rng.choice(pos, n_pos, replace=False), rng.choice(neg, n_neg, replace=False)]
-            )
-            rng.shuffle(ctx)
-        else:
-            ctx = tr_idx
+        # Bagging ensemble: N_BAGS independent 10k subsamples, predictions averaged.
+        va_proba = np.zeros(len(va_idx))
+        te_proba = np.zeros(len(X_test))
+        for b in range(N_BAGS):
+            ctx = _stratified_ctx(tr_idx)
+            model = TabPFNClassifier(device="cuda", random_state=SEED + b, n_estimators=4)
+            model.fit(X[ctx], y[ctx])
+            va_proba += _batched_proba(model, X[va_idx]) / N_BAGS
+            te_proba += _batched_proba(model, X_test) / N_BAGS
+            print(f"    fold {fold} bag {b} | ctx={len(ctx)} | elapsed={time.time() - t0:.0f}s")
 
-        model = TabPFNClassifier(ignore_pretraining_limits=True, device="cuda", random_state=SEED)
-        model.fit(X[ctx], y[ctx])
-
-        oof[va_idx] = _batched_proba(model, X[va_idx])
+        oof[va_idx] = va_proba
         fold_arr[va_idx] = fold
-        test_pred += _batched_proba(model, X_test) / N_SPLITS
+        test_pred += te_proba / N_SPLITS
         auc = float(roc_auc_score(y[va_idx], oof[va_idx]))
         fold_aucs.append(auc)
-        print(f"  fold {fold} | ctx={len(ctx)} | AUC={auc:.5f} | elapsed={time.time() - t0:.0f}s")
+        print(
+            f"  fold {fold} | bags={N_BAGS} cap={CONTEXT_CAP} | AUC={auc:.5f} | elapsed={time.time() - t0:.0f}s"
+        )
 
         # Incremental write (timeout-safe): completed folds' OOF + running test mean.
         pd.DataFrame(
@@ -156,6 +173,7 @@ def main() -> None:
                 "per_fold": fold_aucs,
                 "per_year": per_year,
                 "context_cap": CONTEXT_CAP,
+                "n_bags": N_BAGS,
                 "seed": SEED,
                 "total_seconds": round(time.time() - t0, 1),
             },
