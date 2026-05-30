@@ -106,9 +106,21 @@ def main() -> None:
 
     skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
     oof = np.zeros(len(X))
-    test_pred = np.zeros(len(X_test))
+    test_sum = np.zeros(len(X_test))  # running SUM of every completed bag's full-test proba
+    n_test = 0  # number of completed (fold, bag) test predictions -> mean = test_sum / n_test
     fold_arr = np.full(len(X), -1, dtype=np.int8)
     fold_aucs = []
+
+    def _checkpoint() -> None:
+        """Write outputs after EVERY bag (timeout/kill-safe). All values validly scaled:
+        completed folds' OOF is final; the in-progress fold's OOF is its bags-so-far mean;
+        test = mean over all completed (fold,bag) predictions."""
+        pd.DataFrame(
+            {ID: train_id, "oof_pred": oof, "y": y, "fold": fold_arr, "Year": train_year}
+        ).to_parquet(OUTPUT / "oof_predictions.parquet", index=False)
+        pd.DataFrame({ID: test_id, "test_pred": test_sum / max(n_test, 1)}).to_parquet(
+            OUTPUT / "test_predictions.parquet", index=False
+        )
 
     def _stratified_ctx(tr_idx: np.ndarray) -> np.ndarray:
         """One stratified subsample of <= CONTEXT_CAP rows (rng advances each call -> bags differ)."""
@@ -127,37 +139,28 @@ def main() -> None:
 
     for fold, (tr_idx, va_idx) in enumerate(skf.split(X, y)):
         # Bagging ensemble: N_BAGS independent 10k subsamples, predictions averaged.
-        va_proba = np.zeros(len(va_idx))
-        te_proba = np.zeros(len(X_test))
+        va_sum = np.zeros(len(va_idx))  # raw sum over this fold's bags (divide by bags-done)
+        fold_arr[va_idx] = fold  # mark rows so a mid-fold checkpoint is self-describing
         for b in range(N_BAGS):
             ctx = _stratified_ctx(tr_idx)
             model = TabPFNClassifier(device="cuda", random_state=SEED + b, n_estimators=4)
             model.fit(X[ctx], y[ctx])
-            va_proba += _batched_proba(model, X[va_idx]) / N_BAGS
-            te_proba += _batched_proba(model, X_test) / N_BAGS
+            va_sum += _batched_proba(model, X[va_idx])
+            test_sum += _batched_proba(model, X_test)
+            n_test += 1
+            oof[va_idx] = va_sum / (b + 1)  # valid partial average after each bag
+            _checkpoint()  # kill-safe: write coherent outputs after EVERY bag
             print(f"    fold {fold} bag {b} | ctx={len(ctx)} | elapsed={time.time() - t0:.0f}s")
 
-        oof[va_idx] = va_proba
-        fold_arr[va_idx] = fold
-        test_pred += te_proba / N_SPLITS
+        oof[va_idx] = va_sum / N_BAGS  # finalized fold OOF
         auc = float(roc_auc_score(y[va_idx], oof[va_idx]))
         fold_aucs.append(auc)
         print(
             f"  fold {fold} | bags={N_BAGS} cap={CONTEXT_CAP} | AUC={auc:.5f} | elapsed={time.time() - t0:.0f}s"
         )
 
-        # Incremental write (timeout-safe): completed folds' OOF + running test mean.
-        pd.DataFrame(
-            {ID: train_id, "oof_pred": oof, "y": y, "fold": fold_arr, "Year": train_year}
-        ).to_parquet(OUTPUT / "oof_predictions.parquet", index=False)
-        pd.DataFrame({ID: test_id, "test_pred": test_pred * N_SPLITS / (fold + 1)}).to_parquet(
-            OUTPUT / "test_predictions.parquet", index=False
-        )
-
-    # Final test pred = mean over all folds (already divided by N_SPLITS per fold).
-    pd.DataFrame({ID: test_id, "test_pred": test_pred}).to_parquet(
-        OUTPUT / "test_predictions.parquet", index=False
-    )
+    # Final test pred = mean over ALL completed (fold, bag) predictions = test_sum / n_test.
+    _checkpoint()
     oof_auc = float(roc_auc_score(y, oof))
     per_year = {}
     for yr in sorted(np.unique(train_year)):
