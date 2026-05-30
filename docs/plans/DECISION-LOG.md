@@ -78,25 +78,44 @@ Legend: ✅ done/proven · ⏳ in-flight · ❌ dead end (kept as negative knowl
   commit `44bc568`.
 - **Lesson banked:** don't anchor on the OOF-strong model; LB-probe the candidates.
 
-### D7 — Push to max: improve RealMLP + add TabPFN ⏳ IN FLIGHT
-- **Decision:** (a) RealMLP-v2 with research-backed config (`ls_eps=0` — PyTabKit: label
-  smoothing harms AUC; `n_epochs=16` vs undertrained 5); (b) TabPFN-v2 (3rd family, raw
-  features) pinned `tabpfn==2.0.9` to dodge the TabPFN-3 license gate; (c) explore the
-  2-way blend weight (probes done: w=0.5, RealMLP-alone).
-- **Why:** targeted web research (beyond Kaggle threads) + the D6 reversal.
-- **Completion condition (PENDING):** RealMLP-v2 & TabPFN-v2 kernels COMPLETE →
-  probe each alone on LB → blend the strong non-GBDT models (LB-informed weights, NOT OOF).
-- **Will trigger:** select 2 finals before deadline (slot A = best ≥0.95407; slot B =
-  decorrelated runner-up). If a 3-way blend beats RealMLP-alone → that's slot A.
-- Artifacts: `kernels/run_06_realmlp` (v2), `kernels/run_08_tabpfn`, plan
+### D7 — Push to max: improve RealMLP + add TabPFN ✅ RESOLVED (negative)
+- **Decision:** (a) RealMLP-v2 research-backed config (`ls_eps=0`, `n_epochs=16`);
+  (b) TabPFN-v2 3rd family pinned `tabpfn==2.0.9`; (c) explore 2-way blend weight.
+- **Result (measured):** RealMLP-v2 LB **0.95398** (≈ v1, corr 0.999 — config doesn't
+  decorrelate). TabPFN-v2 LB **0.93318** (honest OOF but 2.1pp too weak). Blend-09
+  (RealMLP+TabPFN w=0.10) LB **0.95399** < RealMLP-alone 0.95407. **No new best.**
+- **Lesson banked:** diversity pays ONLY when the partner is strong; tuning the same
+  architecture won't decorrelate it. → D9.
+
+### D8 — Cut TabPFN, keep quota for a strong partner ✅ DONE
+- **Decision:** stop the TabPFN line. First config (100k context) was out of spec
+  (TabPFN-v2 design limit = 10k, arxiv 2502.17361) → killed at 8650s; refit to 10k +
+  bagging×4 confirmed the model is simply weak here. No further TabPFN runs.
+- **Infra lessons banked:** (1) ALWAYS push GPU kernels with `--accelerator NvidiaTeslaT4`
+  — the pool may give a P100/sm_60 that the preinstalled torch cu128 can't run
+  (`no kernel image`, submit-08 v3 died in 20s). (2) Pull kernel logs with `PYTHONUTF8=1`
+  (emoji in title truncates the download via charmap). (3) Per-bag checkpoint write so a
+  container restart/timeout still yields coherent outputs.
+
+### D9 — TabM: the second STRONG NN ⏳ IN FLIGHT
+- **Decision:** add TabM (PyTabKit `TabM_D_Classifier`, ICLR 2025 — parameter-efficient
+  MLP-ensemble, ≥ RealMLP on TabArena). Same submit-06 pipeline, only the model swapped.
+- **Why:** the D7 negative result + the rule from D8 — need a partner that is BOTH strong
+  (~0.954) AND a different architecture. TabM fits; a RealMLP+TabM blend is the classic
+  diversity gain TabPFN could not give. TabM-alone may also be a new best.
+- **Completion condition (PENDING):** TabM kernel COMPLETE → probe alone on LB →
+  corr(RealMLP,TabM) → isotonic blend (LB-informed weight) → does it beat 0.95407?
+- **Will trigger:** if TabM or its blend > 0.95407 → it becomes final slot A. Else finals
+  stay A=RealMLP-v1 / B=blend-09.
+- Artifacts: `kernels/run_10_tabm`, commit `2d14f48`, plan
   `docs/plans/2026-05-30-realmlp-diversity-status-and-plan.md`.
 
 ---
 
 ## Frontier pointer
-**Now:** waiting on D7 kernels (RealMLP-v2 `pguillemin/f1-s6e5-realmlp-v2`, TabPFN-v2
-`pguillemin/f1-s6e5-tabpfn`). On completion: probe → blend → finals. Best so far = RealMLP-v1
-alone **LB 0.95407**.
+**Now:** waiting on D9 TabM kernel (`pguillemin/f1-s6e5-tabm`). On completion: probe alone →
+corr vs RealMLP → isotonic blend → revise finals if > 0.95407. Best so far = RealMLP-v1
+alone **LB 0.95407**. Finals provisionally A=RealMLP-v1 (0.95407) / B=blend-09 (0.95399).
 
 ## Superseded / frozen plan docs (for reference, not active)
 - `docs/plans/2026-05-28-submit-02-plan.md` — Plan-2 (D1), shipped, regressed.
