@@ -247,6 +247,28 @@ def main() -> None:
             OUTPUT / "test_predictions.parquet", index=False
         )
 
+    # TabR retrieval cost is O(N_candidates) per sample -> ~270s/epoch on the full ~430k train
+    # (MEASURED v4: fold 0 not done after 70min, 5 folds would blow the deadline). Subsample the
+    # per-fold training pool to MAX_TRAIN stratified rows -> ~63s/epoch, 5 folds finish with
+    # margin. 100k candidates is plenty for retrieval; preserves the decorrelated inductive bias.
+    MAX_TRAIN = 100_000
+    sub_rng = np.random.default_rng(SEED)
+
+    def _subsample(xm: np.ndarray, ym: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        if len(ym) <= MAX_TRAIN:
+            return xm, ym
+        pos = np.where(ym == 1)[0]
+        neg = np.where(ym == 0)[0]
+        n_pos = int(round(len(pos) * MAX_TRAIN / len(ym)))
+        idx = np.concatenate(
+            [
+                sub_rng.choice(pos, n_pos, replace=False),
+                sub_rng.choice(neg, MAX_TRAIN - n_pos, replace=False),
+            ]
+        )
+        sub_rng.shuffle(idx)
+        return xm[idx], ym[idx]
+
     for fold, ((tr_idx, val_idx), (or_tr_idx, _)) in enumerate(
         zip(skf.split(X, y), skf.split(orig, y_orig), strict=False), 0
     ):
@@ -262,9 +284,11 @@ def main() -> None:
         Xtr_mat = np.hstack([X_tr[feat_cols].to_numpy(np.float32), tr_enc])
         Xval_mat = np.hstack([X_val[feat_cols].to_numpy(np.float32), val_enc])
         Xtst_mat = np.hstack([X_test[feat_cols].to_numpy(np.float32), tst_enc])
+        Xtr_mat, y_tr_arr = _subsample(Xtr_mat, y_tr.to_numpy())
+        print(f"  fold {fold} | train subsampled to {len(y_tr_arr)} | t={time.time() - t0:.0f}s")
 
         model = RealTabR_D_Classifier(**params)
-        model.fit(Xtr_mat, y_tr.to_numpy(), Xval_mat, y_val.to_numpy())
+        model.fit(Xtr_mat, y_tr_arr, Xval_mat, y_val.to_numpy())
 
         val_preds = model.predict_proba(Xval_mat)[:, 1]
         oof[val_idx] = val_preds
