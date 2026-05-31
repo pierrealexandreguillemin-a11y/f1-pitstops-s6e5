@@ -1,8 +1,8 @@
 """submit-16 (A1 fast) — RealTabR + early-stopping (faster at equal quality vs submit-13).
 
-Same as submit-13 (100k subsample, 5 folds, numeric matrix) but with early stopping enabled
-so we stop wasting epochs past the val peak (RealTabR_D already keeps best-epoch -> no quality
-loss). Races submit-13 in the other GPU slot; take whichever finishes first with a clean OOF.
+Same as submit-13 (100k subsample, numeric matrix) but 3 folds not 5 -> ~40% faster, still
+full OOF coverage. (RealTabR_D rejects RealMLP's early-stopping kwargs, so folds is the safe
+speed lever.) Races submit-13's 5-fold in the other GPU slot; the 3-fold finishes first.
 
 --- original submit-13 rationale ---
 submit-13 (A1) — RealTabR (PyTabKit) the UNTESTED retrieval architecture.
@@ -51,7 +51,7 @@ from sklearn.preprocessing import KBinsDiscretizer, TargetEncoder
 INPUT_ROOT = Path("/kaggle/input")
 OUTPUT = Path("/kaggle/working")
 SEED = 42
-N_SPLITS = 5
+N_SPLITS = 3  # submit-16 speed hedge: 3-fold (full OOF coverage, ~40% faster than submit-13's 5)
 TARGET = "PitNextLap"
 ID = "id"
 
@@ -230,19 +230,11 @@ def main() -> None:
     feat_cols = list(X.columns)
     print(f"  TabR numeric matrix = {len(feat_cols)} cols (all float, no one-hot)")
 
-    # FASTER at EQUAL quality (submit-16): RealTabR_D keeps the best-epoch model (it gets X_val),
-    # so epochs past the val peak only burn GPU. The submit-13 run trained 25+ epochs with no
-    # stop. Enable early stopping (no hard n_epochs cap -> never cuts before the peak; stops only
-    # once val plateaus) -> same best-epoch quality, fewer wasted epochs. These patience params
-    # are pytabkit base-trainer kwargs (shared with RealMLP, which accepted them in submit-06).
-    params = {
-        "random_state": SEED,
-        "n_threads": 4,
-        "verbosity": 1,
-        "use_early_stopping": True,
-        "early_stopping_additive_patience": 8,
-        "early_stopping_multiplicative_patience": 1,
-    }
+    # FASTER (submit-16): RealTabR_D rejects RealMLP's early-stopping kwargs
+    # (TypeError use_early_stopping, MEASURED). Safe speed lever instead = 3 folds not 5 (N_SPLITS
+    # below): full OOF coverage (every row predicted out-of-fold once), 3 models instead of 5 ->
+    # ~40% faster, near-equal quality. Races submit-13's 5-fold; the 3-fold finishes first.
+    params = {"random_state": SEED, "n_threads": 4, "verbosity": 1}
 
     skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
     oof = np.zeros(len(X))
