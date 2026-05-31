@@ -202,12 +202,27 @@ def main() -> None:
     X, new_cat, new_num, combo_names = feature_engineering(X, fit=True)
     X_test, _, _, _ = feature_engineering(X_test, fit=False)
     orig, _, _, _ = feature_engineering(orig, fit=False)
-    cat_cols += new_cat
-    num_cols += new_num
     print(f"  prep features = {X.shape[1]} (cat+num) | combos={combo_names}")
 
-    # RealTabR tuned-defaults: pass ONLY universally-safe params to avoid TabR-specific
-    # param-name crashes. The TD interface is designed to work with zero per-dataset tuning.
+    # TabR one-hot-encodes EVERY categorical with NO cardinality cap -> 8GiB CUDA OOM on our
+    # high-card combos / _cat_ cols (MEASURED, v3 crash). RealMLP capped one-hot at 18 + used
+    # embeddings; TabR has no such guard. Fix: factorize ALL object cols to int codes (shared
+    # X+test+orig mapping) and feed TabR a pure-NUMERIC float32 matrix -> no one-hot encoder is
+    # built, only the retrieval path runs. Combos kept as codes for the fold-wise leak-free
+    # TargetEncoder (sklearn TE treats int codes as categories -> identical grouping).
+    obj_cols = X.select_dtypes(include=["object"]).columns.tolist()
+    for c in obj_cols:
+        cats = (
+            pd.concat([X[c].astype(str), X_test[c].astype(str), orig[c].astype(str)])
+            .astype("category")
+            .cat.categories
+        )
+        X[c] = pd.Categorical(X[c].astype(str), categories=cats).codes.astype("int32")
+        X_test[c] = pd.Categorical(X_test[c].astype(str), categories=cats).codes.astype("int32")
+        orig[c] = pd.Categorical(orig[c].astype(str), categories=cats).codes.astype("int32")
+    feat_cols = list(X.columns)
+    print(f"  TabR numeric matrix = {len(feat_cols)} cols (all float, no one-hot)")
+
     params = {"random_state": SEED, "n_threads": 4, "verbosity": 1}
 
     skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
@@ -238,24 +253,23 @@ def main() -> None:
         X_tr = pd.concat([X.iloc[tr_idx], orig.iloc[or_tr_idx]], axis=0).reset_index(drop=True)
         y_tr = pd.concat([y.iloc[tr_idx], y_orig.iloc[or_tr_idx]], axis=0).reset_index(drop=True)
         X_val, y_val = X.iloc[val_idx].copy(), y.iloc[val_idx]
-        X_tst = X_test.copy()
 
         te = TargetEncoder(cv=N_SPLITS, smooth="auto", shuffle=True, random_state=SEED)
-        tr_enc = te.fit_transform(X_tr[combo_names], y_tr)
-        val_enc = te.transform(X_val[combo_names])
-        tst_enc = te.transform(X_tst[combo_names])
-        te_names = [f"_{c}TE" for c in combo_names]
-        X_tr[te_names] = tr_enc
-        X_val[te_names] = val_enc
-        X_tst[te_names] = tst_enc
+        tr_enc = te.fit_transform(X_tr[combo_names], y_tr).astype("float32")
+        val_enc = te.transform(X_val[combo_names]).astype("float32")
+        tst_enc = te.transform(X_test[combo_names]).astype("float32")
+
+        Xtr_mat = np.hstack([X_tr[feat_cols].to_numpy(np.float32), tr_enc])
+        Xval_mat = np.hstack([X_val[feat_cols].to_numpy(np.float32), val_enc])
+        Xtst_mat = np.hstack([X_test[feat_cols].to_numpy(np.float32), tst_enc])
 
         model = RealTabR_D_Classifier(**params)
-        model.fit(X_tr, y_tr, X_val, y_val)
+        model.fit(Xtr_mat, y_tr.to_numpy(), Xval_mat, y_val.to_numpy())
 
-        val_preds = model.predict_proba(X_val)[:, 1]
+        val_preds = model.predict_proba(Xval_mat)[:, 1]
         oof[val_idx] = val_preds
         fold_arr[val_idx] = fold
-        test_pred += model.predict_proba(X_tst)[:, 1] / N_SPLITS
+        test_pred += model.predict_proba(Xtst_mat)[:, 1] / N_SPLITS
         auc = float(roc_auc_score(y_val, val_preds))
         fold_aucs.append(auc)
         print(f"  fold {fold} | AUC={auc:.5f} | elapsed={time.time() - t0:.0f}s")
