@@ -117,7 +117,20 @@ single AND beats every blend we built. No principled lever left within the time/
 decorrelated near-tied candidate = private-LB insurance). Select on Kaggle UI (no CLI);
 Kaggle's top-2-public default already = these two.
 
-### D10 — Improve RealMLP-v1 ITSELF (blends exhausted) ⏳ IN FLIGHT (option 1)
+### D10 — Improve RealMLP-v1 ITSELF (blends exhausted) ✅ RESOLVED — lever 1 negative
+**Result:** run_12 RealMLP+(Y,R,D,Compound) target-mean FE → OOF **0.95399** (flat: +0.00003
+vs v2, −0.0001 vs v1), LB **0.95401** = −0.00006 vs RealMLP-v1 0.95407 = **0.08×SE, a
+statistical tie**. OOF predicted LB within 0.00002 (RealMLP OOF≈LB reliable, reconfirmed).
+In-data aggregates are REDUNDANT with what RealMLP already captures (native categoricals +
+freq-enc + combo target-enc). **Glass ceiling ~0.954 confirmed.** Key statistical finding:
+SE(AUC) on the public test ≈ **0.00078** (Hanley-McNeil) → the gap to #1 (0.00090) = 1.15×SE,
+i.e. #1's score is INSIDE our own 95% CI (0.95407 ± 0.00153); top 464 teams fit in ~4.4 SE.
+The leaderboard top is a noise cluster; private LB will reshuffle → final B (decorrelated)
+is the right insurance. Lever 2 (seed-ensemble) expected < 0.5×SE = noise → not worth it.
+**Recommendation: STOP, finals stay LOCKED.** (run_12 is a RealMLP clone ρ~0.99 → NOT a
+better B than blend-09.) Original D10 plan below for reference:
+
+
 Context: public LB is a density wall — top 0.95497, us 0.95407 (#464/2904), 229 teams in
 [0.9515, 0.95407]. Blends all failed; the only path up is a stronger RealMLP standalone.
 Three levers evaluated (RealMLP-v1 already has: `n_ens=20` internal ensemble, yekenot FE

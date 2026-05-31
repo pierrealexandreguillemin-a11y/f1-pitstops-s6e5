@@ -64,6 +64,8 @@ Ship a submission only if `AUC_CV ≥ baseline + 0.5pp` AND `paired fold majorit
 | 11 | 2026-05-30 | **Blend isotonique RealMLP-v1 + TabM** w_tm=0.25. | 0.95429 | 0.95398 | sous RealMLP seul (−0.009pp) | **3ᵉ échec de diversité** : OOF +0.011pp non transféré, comme TabPFN. À corr 0.989 le blend = clone de RealMLP. **Les 3 familles (GBDT/foundation/MLP) épuisées → RealMLP-v1 seul (0.95407) = plafond LB public.** |
 | — | conclu | **Plan-Ensemble** (ex-"submit-03") : diversité + blend isotonic. [`docs/plans/2026-05-28-plan-ensemble-FROZEN.md`](docs/plans/2026-05-28-plan-ensemble-FROZEN.md) | — | — | — | **CONCLU** : isotonic blend opérationnel mais AUCUN partenaire (CatBoost ρ.958 / TabPFN ρ.919-faible / TabM ρ.989) ne bat RealMLP-seul. Le gain OOF des blends ne transfère jamais. Plateau LB ~0.954. |
 
+| 12 | 2026-05-31 | **RealMLP + agrégats target (Y,R,D,Compound)** in-data, leak-free `TargetEncoder(cv=5)`. `kernels/run_12_realmlp_agg` (D10 lever 1). | 0.95399 | 0.95401 | tie (−0.00006 = 0.08·SE) | **Agrégats REDONDANTS** : OOF plat, LB = égalité statistique avec RealMLP-v1. Confirme le plafond. **SE(AUC) public ≈ 0.00078** → l'écart à #1 (0.0009) = 1.15·SE (bruit). Données synthétiques+anonymisées (Driver 887 hashé) → pas de levier externe non plus. |
+
 **Finals VERROUILLÉS (deadline 2026-05-31 23:59 UTC)** : **A = RealMLP-v1 seul (LB 0.95407)** · **B = blend RealMLP+TabPFN `09` (LB 0.95399)** = top-2 public + composant le plus décorrélé (TabPFN ρ.919) en assurance LB-privé (blend-11 TabM ρ.989 = clone, écarté comme B). **3 familles testées, plafond atteint, plus de levier principiel.** Sélection manuelle UI Kaggle (pas de CLI) ; défaut Kaggle (top-2 public) = ces 2.
 
 Filled after each submit. Empty cells = not yet measured (never "expected").
