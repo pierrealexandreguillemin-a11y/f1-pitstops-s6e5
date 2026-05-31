@@ -1,0 +1,14 @@
+{
+  "id": "pguillemin/f1-s6e5-realmlp-struct",
+  "title": "f1 s6e5 realmlp struct",
+  "code_file": "run_14_realmlp_struct.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["aadigupta1601/f1-strategy-dataset-pit-stop-prediction"],
+  "competition_sources": ["playground-series-s6e5"],
+  "kernel_sources": [],
+  "model_sources": []
+}

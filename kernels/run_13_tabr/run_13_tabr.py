@@ -151,7 +151,9 @@ def per_year_auc(y_true, y_pred, year) -> dict:
 
 def main() -> None:
     t0 = time.time()
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pytabkit"])
+    # TabR needs skorch (torch wrapper) — NOT pulled by pytabkit's base install; without it
+    # RealTabR_D crashes at .fit() (ModuleNotFoundError 'skorch', confirmed v2 run).
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pytabkit", "skorch"])
     # TabR retrieves neighbours via faiss — NOT a pytabkit dependency (README: "conda only",
     # but pip wheels exist). Without it RealTabR_D crashes at .fit(). Install only if missing;
     # prefer the GPU wheel (fast retrieval over ~430k rows), fall back to CPU (reliable).
