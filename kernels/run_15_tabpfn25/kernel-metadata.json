@@ -1,0 +1,14 @@
+{
+  "id": "pguillemin/f1-s6e5-tabpfn-rich",
+  "title": "f1 s6e5 tabpfn rich",
+  "code_file": "run_15_tabpfn25.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["aadigupta1601/f1-strategy-dataset-pit-stop-prediction"],
+  "competition_sources": ["playground-series-s6e5"],
+  "kernel_sources": [],
+  "model_sources": []
+}
