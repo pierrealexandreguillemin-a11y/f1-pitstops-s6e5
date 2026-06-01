@@ -65,8 +65,27 @@ Ship a submission only if `AUC_CV ≥ baseline + 0.5pp` AND `paired fold majorit
 | — | conclu | **Plan-Ensemble** (ex-"submit-03") : diversité + blend isotonic. [`docs/plans/2026-05-28-plan-ensemble-FROZEN.md`](docs/plans/2026-05-28-plan-ensemble-FROZEN.md) | — | — | — | **CONCLU** : isotonic blend opérationnel mais AUCUN partenaire (CatBoost ρ.958 / TabPFN ρ.919-faible / TabM ρ.989) ne bat RealMLP-seul. Le gain OOF des blends ne transfère jamais. Plateau LB ~0.954. |
 
 | 12 | 2026-05-31 | **RealMLP + agrégats target (Y,R,D,Compound)** in-data, leak-free `TargetEncoder(cv=5)`. `kernels/run_12_realmlp_agg` (D10 lever 1). | 0.95399 | 0.95401 | tie (−0.00006 = 0.08·SE) | **Agrégats REDONDANTS** : OOF plat, LB = égalité statistique avec RealMLP-v1. Confirme le plafond. **SE(AUC) public ≈ 0.00078** → l'écart à #1 (0.0009) = 1.15·SE (bruit). Données synthétiques+anonymisées (Driver 887 hashé) → pas de levier externe non plus. |
+| 13 | 2026-05-31 | **Probe TabR fold0 partial** (full-430k, retrieval) + RealMLP-v1 rank-blend w=0.20. `kernels/run_13_tabr`. | OOF 0.95025 (TabR) | **0.95411** | **+0.04pp** | **1ʳᵉ diversité non-dégradante** : ρ=0.945 (full) le plus décorrélé du projet. Premier blend > RealMLP-v1. Privé 0.95428. |
+| 14-15 | 2026-05-31 | **TabR full-430k / TabPFN-rich** (scope coupé deadline : TabR subsample 100k, TabPFN 2 bags). `kernels/run_14_15`. | — | diagnostic | — | Scope réduit pour tenir la deadline (TabR O(N) ~270s/epoch full vs 36s 100k). A2 TabPFN-rich = négatif (voir row 16-bis). |
+| 16 | 2026-05-31 | **TabR 3-fold 100k + RealMLP-v1** rank-blend w=0.10. `kernels/run_16_tabr3fold`. **→ FINAL A.** | TabR ρ=0.901 | **0.95414** | **+0.07pp** | **Cohérence 4/4 blends TabR ≥ v1.** Privé **0.95423**. Sélectionné comme final A. |
+| 17 | 2026-05-31 | **TabR 5-fold 100k + RealMLP-v1** rank-blend w=0.10 (repro confirm). `kernels/run_17_tabr5fold`. | TabR ρ=0.914 | **0.95415** | **+0.08pp** | **Meilleur public du projet.** Privé 0.95426 (> final A retenu — mais 0.06·SE = bruit, 0 impact rang). Repro confirme submit-16. |
+| A2 | 2026-05-31 | **TabPFN-rich FE** (14→41 features) seul. Test : la richesse FE dé-affame-t-elle TabPFN ? | — | **0.93485** | −1.9pp | **NÉGATIF** : FE riche n'a rien dé-affamé, TabPFN reste faible ici. Hypothèse D7 réfutée. |
+| B2 | 2026-05-31 | **Structural aggregates** (reconstruction d'ordre lap). | OOF 0.95394 | non soumis | sous v1 | **NÉGATIF + voie MORTE** : ρ.99 redondant ; `StintStartLap` incohérent → reconstruction d'ordre impossible (confirme EDA-02 : 62% Stint non-monotone). |
 
-**Finals VERROUILLÉS (deadline 2026-05-31 23:59 UTC)** : **A = RealMLP-v1 seul (LB 0.95407)** · **B = blend RealMLP+TabPFN `09` (LB 0.95399)** = top-2 public + composant le plus décorrélé (TabPFN ρ.919) en assurance LB-privé (blend-11 TabM ρ.989 = clone, écarté comme B). **3 familles testées, plafond atteint, plus de levier principiel.** Sélection manuelle UI Kaggle (pas de CLI) ; défaut Kaggle (top-2 public) = ces 2.
+**Finals SÉLECTIONNÉS (deadline passée, réouverts puis confirmés)** : **A = blend RealMLP-v1 + TabR 3-fold `16` (public 0.95414 / privé 0.95423)** · **B = RealMLP-v1 seul (public 0.95407 / privé 0.95412)** = blend gagnant + moteur pur décorrélé en hedge LB-privé. TabR = 4ᵉ famille (retrieval), 1er partenaire non-dégradant du projet.
+
+## Résultat final — 523ème / shakeup −40 places
+
+Compétition **fermée 2026-05-31 23:59 UTC**. Classement final **523ème** (privé), −40 places vs public — shakeup modéré, dans le bruit du plateau (top-464 tenait en ~4.4·SE, voir D10).
+
+| | Public | Privé |
+|---|---|---|
+| **Final A** — submit-16 blend RealMLP+TabR | 0.95414 | **0.95423** |
+| **Final B** — RealMLP-v1 seul | 0.95407 | 0.95412 |
+| Meilleur privé non sélectionné (submit-13) | 0.95411 | 0.95428 |
+| 🥇 1ère place (vainqueur) | 0.95488 | 0.95503 |
+
+**Lecture honnête** : (1) le pari TabR a payé en privé aussi — nos 3 meilleurs scores privés sont les 3 blends TabR ; (2) A > B en privé (le blend bat le moteur, **cohérent avec le public** → décision robuste, pas de retournement) ; (3) nos deux meilleures submissions privées (submit-13 0.95428, submit-17 0.95426) **n'étaient PAS sélectionnées** — écart à A retenu = 0.00005 ≈ 0.06·SE = bruit pur, 0 impact rang (thèse du « nuage de bruit » D10 confirmée : impossible de trapper le meilleur final dans ce régime). La discipline LB-only + plafond reconnu + no-grinding nous a protégés d'une vraie dégringolade de shakeup.
 
 Filled after each submit. Empty cells = not yet measured (never "expected").
 

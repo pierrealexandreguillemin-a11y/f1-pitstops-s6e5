@@ -151,18 +151,68 @@ Three levers evaluated (RealMLP-v1 already has: `n_ens=20` internal ensemble, ye
   → re-creates the submit-02 mirage trap (CV-overfit config that regresses on LB). Worst
   choice at J-0.
 
-- **Completion condition (PENDING):** run_12 COMPLETE → probe alone on LB → beats 0.95407?
-  If yes → new best, becomes final slot A. If no → lever 1 dead, fall back to lever 2 or stop.
-- Ship gate unchanged: submit only if hypothesis-backed to beat 0.95407 (LB the verdict).
+- **Completion condition (RESOLVED above):** run_12 COMPLETE → probe alone → LB 0.95401 =
+  tie. Lever 1 dead. Fell back, then re-opened the diversity search → **D11**.
+
+### D11 — TabR (retrieval) : the FIRST non-degrading diversity partner ✅ WIN
+- **Decision:** add TabR (PyTabKit `RealTabR_D`, retrieval-augmented — a 4th family beyond
+  GBDT/foundation/MLP), rank-blend with RealMLP-v1.
+- **Why:** every prior partner failed for one of two reasons — too weak (TabPFN) or too
+  correlated (CatBoost ρ.958, TabM ρ.989). Retrieval is architecturally orthogonal to a
+  plain MLP → hypothesis: genuinely decorrelated AND strong.
+- **Result (measured):** TabR is the **most decorrelated partner of the project** —
+  ρ=0.901 (3-fold), full-430k fold0 ρ=0.945, OOF 0.95025. **All 4 RealMLP-v1+TabR blends
+  beat RealMLP-v1 alone** on both LBs:
+  - probe-13 (TabR fold0 partial, w=0.20) → public 0.95411 / private 0.95428
+  - submit-16 (3-fold 100k, w=0.10) → public 0.95414 / private **0.95423**
+  - submit-17 (5-fold 100k, w=0.10) → public 0.95415 / private 0.95426
+  - vs RealMLP-v1 alone → public 0.95407 / private 0.95412
+- **Caveat (honest):** +0.00008 public ≈ 0.1×SE = noise on a single metric, BUT 4/4
+  consistency = real signal + better private-LB insurance. This is the first time a blend
+  was monotonically ≥ the engine.
+- **Triggered:** finals UPGRADED → A = submit-16 (blend), B = RealMLP-v1 (decorrelated
+  hedge). blend-09/TabPFN dropped as final.
+- **Infra lessons banked:** TabR needs `skorch`+`faiss` (pip, NOT pulled by pytabkit) ·
+  one-hots ALL cats uncapped → CUDA OOM on high-card → feed a NUMERIC matrix
+  (factorize→float codes) · `RealTabR_D` REJECTS `use_early_stopping` (TypeError) → buy
+  speed by cutting folds, not RealMLP params · ~270s/epoch full-430k vs ~36s/epoch 100k
+  (retrieval is O(N)) → 100k subsample mandatory under deadline · Kaggle slug can stay 404
+  after a GPU-limit reject → rename the slug · manual STOP of a kernel COMMITS its
+  checkpoint (partial pull recoverable) · TabR has its own internal early-stop (best-epoch
+  kept even without the param).
+
+### D12 — Last-day diversity probes (A2 TabPFN-rich, B2 structural) ❌ both negative
+- **A2 — TabPFN with rich FE (14→41 features):** hypothesis = TabPFN was weak in D7 because
+  starved (14 raw features). Result LB **0.93485** — richer FE did NOT un-starve it. TabPFN
+  stays weak here. Dead.
+- **B2 — structural aggregates (lap-order reconstruction):** OOF 0.95394 < v1, ρ.99 redundant.
+  Order-reconstruction is impossible — `StintStartLap` incoherent (confirms EDA-02 integrity
+  flaw: 62% non-monotonic Stint). Dead.
+- **B1 — public-OOF blend:** DISCARDED as plagiarism (user call — not our work).
+- **Lesson banked:** at this plateau, only an architecturally-new family (D11/TabR) moved the
+  needle; FE-richness and structure-reconstruction are exhausted.
+
+### FINAL RESULT — competition closed 2026-05-31 23:59 UTC ✅
+- **Rank: 523rd** (−40 places public→private shakeup — modest, within the plateau noise).
+- **Selected finals (private):** A = submit-16 blend **0.95423** · B = RealMLP-v1 **0.95412**.
+  A > B in private too (blend beats engine, consistent with public — robust decision).
+- **Honest footnote:** our two BEST private scores (submit-13 0.95428, submit-17 0.95426)
+  were NOT selected; submit-16 (selected) scored 0.95423. Gap 0.00005 ≈ 0.06×SE = pure noise,
+  zero rank impact. The "noise cloud" thesis (D10) held: impossible to trap the best final in
+  this regime, and that's fine.
+- **Winner:** 1st place 0.95503 private (writeup analysed separately — 186 OOFs, Autogluon +
+  LR-Logits 50/50 blend, Driver-dropped models, last-minute submission won by 0.00001).
+- **What protected us:** LB-only discipline, recognised ceiling, no LB-grinding, kept Aadi
+  (measured +0.078pp), Kaggle-only training. Shakeup didn't punish an overfit (we'd have
+  fallen far more). TabR diversity bet paid off in private too.
 
 ---
 
 ## Frontier pointer
-**Now:** D10 lever-1 IN FLIGHT — RealMLP-v1 + (Y,R,D) target-mean FE (`run_12_realmlp_agg`,
-`pguillemin/f1-s6e5-realmlp-agg`). All blends exhausted (D6/D7/D8/D9). Best = RealMLP-v1 alone
-**LB 0.95407** (#464/2904, density wall). On completion: probe → if > 0.95407 it becomes final
-slot A, else fall back. Finals currently LOCKED A=RealMLP-v1 / B=blend-09. Deadline 2026-05-31
-23:59 UTC.
+**CLOSED.** Competition ended 2026-05-31 23:59 UTC → **523rd** (private). Finals A=submit-16
+blend-TabR (private 0.95423) / B=RealMLP-v1 (0.95412). TabR (D11) = the one diversity partner
+that paid off, in public AND private. Winner 0.95503. ML work is done; the live thread is now
+the `docs/learn/` ML teaching series (module 00 written, awaiting 01→06).
 
 ## Superseded / frozen plan docs (for reference, not active)
 - `docs/plans/2026-05-28-submit-02-plan.md` — Plan-2 (D1), shipped, regressed.
