@@ -25,16 +25,22 @@ repos:
 
   - repo: local
     hooks:
+      # Lance via `uv run --frozen` et non `.venv/Scripts/python.exe` : pre-commit
+      # decoupe `entry` avec shlex en mode POSIX, qui avale les backslashes, et
+      # CreateProcess ne resout pas un chemin relatif a slashes. Les deux formes
+      # Windows echouaient donc en [WinError 2] sans jamais lancer le processus
+      # (duree mesuree 0.02s). `uv run --frozen` utilise le venv du projet et les
+      # versions figees par uv.lock — meme convention que _template du workspace kaggle.
       - id: lock-sync-check
         name: requirements.lock sync vs pyproject.toml
-        entry: .venv/Scripts/python.exe scripts/check_lock_sync.py
+        entry: uv run --frozen python scripts/check_lock_sync.py
         language: system
         stages: [pre-push]
         pass_filenames: false
 
       - id: pytest-sanity
         name: pytest sanity asserts
-        entry: .venv/Scripts/python.exe -m pytest tests/ -q
+        entry: uv run --frozen pytest tests/ -q
         language: system
         stages: [pre-push]
         pass_filenames: false
